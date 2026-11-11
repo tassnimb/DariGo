@@ -70,4 +70,53 @@ class LogementService {
 
     return response.statusCode == 201;
   }
+    static Future<bool> updateLogement({
+    required int id,
+    required String titre,
+    required String adresse,
+    required String description,
+    required String prix,
+  }) async {
+    SharedPreferences prefs =
+        await SharedPreferences.getInstance();
+
+    String? token = prefs.getString("access");
+
+    final response = await http.put(
+      Uri.parse("$baseUrl$id/"),
+      headers: {
+        "Authorization": "Bearer $token",
+        "Content-Type": "application/json",
+      },
+      body: jsonEncode({
+        "titre": titre,
+        "adresse": adresse,
+        "description": description,
+        "prix": prix,
+      }),
+    );
+
+    print(response.statusCode);
+    print(response.body);
+
+    return response.statusCode == 200;
+  }
+  static Future<bool> deleteLogement(int id) async {
+  SharedPreferences prefs =
+      await SharedPreferences.getInstance();
+
+  String? token = prefs.getString("access");
+
+  final response = await http.delete(
+    Uri.parse("$baseUrl$id/"),
+    headers: {
+      "Authorization": "Bearer $token",
+      "Content-Type": "application/json",
+    },
+  );
+
+  print(response.statusCode);
+
+  return response.statusCode == 204;
+}
 }

@@ -88,16 +88,23 @@ return Card(
     trailing: Text(
       "${logement.prix} DT",
     ),
-    onTap: () {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => LogementDetailScreen(
-            logement: logement,
-          ),
-        ),
-      );
-    },
+  onTap: () async {
+  final result = await Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => LogementDetailScreen(
+        logement: logement,
+      ),
+    ),
+  );
+
+  if (result == true) {
+    setState(() {
+      logementsFuture =
+          LogementService.getLogements();
+    });
+  }
+},
   ),
 );
             },
