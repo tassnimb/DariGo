@@ -3,7 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/api_service.dart';
 import 'register_screen.dart';
-
+import 'logements/logement_list_screen.dart';
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -30,6 +30,7 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       print("Réponse API : $result");
+      print("TOKEN = ${result?['access']}");
 
       if (result != null) {
         SharedPreferences prefs =
@@ -49,7 +50,14 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
 
-        print("Connexion réussie");
+       print("Connexion réussie");
+
+Navigator.pushReplacement(
+  context,
+  MaterialPageRoute(
+    builder: (_) => const LogementListScreen(),
+  ),
+);
       } else {
         if (!mounted) return;
 
