@@ -12,46 +12,77 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final usernameController = TextEditingController();
-  final passwordController = TextEditingController();
+  final TextEditingController usernameController =
+      TextEditingController();
+
+  final TextEditingController passwordController =
+      TextEditingController();
 
   Future<void> login() async {
-    var result = await ApiService.login(
-      username: usernameController.text.trim(),
-      password: passwordController.text.trim(),
-    );
+    try {
+      print("===== LOGIN =====");
+      print("Username: ${usernameController.text}");
+      print("Password: ${passwordController.text}");
 
-    if (result != null) {
-      SharedPreferences prefs =
-          await SharedPreferences.getInstance();
-
-      await prefs.setString(
-        "access",
-        result["access"],
+      final result = await ApiService.login(
+        username: usernameController.text.trim(),
+        password: passwordController.text.trim(),
       );
 
-      if (!mounted) return;
+      print("Réponse API : $result");
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Connexion réussie ✅"),
-          backgroundColor: Colors.green,
-        ),
-      );
+      if (result != null) {
+        SharedPreferences prefs =
+            await SharedPreferences.getInstance();
 
-      print(result);
-    } else {
-      if (!mounted) return;
+        await prefs.setString(
+          "access",
+          result["access"],
+        );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            "Nom d'utilisateur ou mot de passe incorrect ❌",
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Connexion réussie ✅"),
+            backgroundColor: Colors.green,
           ),
+        );
+
+        print("Connexion réussie");
+      } else {
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              "Nom d'utilisateur ou mot de passe incorrect ❌",
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+
+        print("Résultat NULL");
+      }
+    } catch (e) {
+      print("ERREUR LOGIN : $e");
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Erreur : $e"),
           backgroundColor: Colors.red,
         ),
       );
     }
+  }
+
+  @override
+  void dispose() {
+    usernameController.dispose();
+    passwordController.dispose();
+    super.dispose();
   }
 
   @override
