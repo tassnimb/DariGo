@@ -79,35 +79,62 @@ SizedBox(
       backgroundColor: Colors.red,
     ),
     onPressed: () async {
-      bool success =
-          await LogementService.deleteLogement(
-        logement.id,
-      );
 
-      if (!context.mounted) return;
+  final confirmer = await showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text("Confirmation"),
+      content: const Text(
+        "Voulez-vous vraiment supprimer ce logement ?",
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.pop(context, false);
+          },
+          child: const Text("Annuler"),
+        ),
+        TextButton(
+          onPressed: () {
+            Navigator.pop(context, true);
+          },
+          child: const Text("Supprimer"),
+        ),
+      ],
+    ),
+  );
 
-      if (success) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(
-          const SnackBar(
-            content: Text(
-              "Logement supprimé ✅",
-            ),
-          ),
-        );
+  if (confirmer != true) return;
 
-        Navigator.pop(context, true);
-      } else {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(
-          const SnackBar(
-            content: Text(
-              "Erreur suppression ❌",
-            ),
-          ),
-        );
-      }
-    },
+  bool success =
+      await LogementService.deleteLogement(
+    logement.id,
+  );
+
+  if (!context.mounted) return;
+
+  if (success) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(
+      const SnackBar(
+        content: Text(
+          "Logement supprimé ✅",
+        ),
+      ),
+    );
+
+    Navigator.pop(context, true);
+  } else {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(
+      const SnackBar(
+        content: Text(
+          "Erreur suppression ❌",
+        ),
+      ),
+    );
+  }
+},
     child: const Text("Supprimer"),
   ),
 ),

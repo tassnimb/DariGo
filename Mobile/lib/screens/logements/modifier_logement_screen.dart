@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../services/logement_service.dart';
 import '../../models/logement.dart';
 
@@ -18,6 +19,8 @@ class ModifierLogementScreen extends StatefulWidget {
 class _ModifierLogementScreenState
     extends State<ModifierLogementScreen> {
 
+  final _formKey = GlobalKey<FormState>();
+
   late TextEditingController titreController;
   late TextEditingController adresseController;
   late TextEditingController descriptionController;
@@ -27,19 +30,19 @@ class _ModifierLogementScreenState
   void initState() {
     super.initState();
 
-    titreController =
-        TextEditingController(text: widget.logement.titre);
+    titreController = TextEditingController(
+      text: widget.logement.titre,
+    );
 
-    adresseController =
-        TextEditingController(text: widget.logement.adresse);
+    adresseController = TextEditingController(
+      text: widget.logement.adresse,
+    );
 
-    descriptionController =
-        TextEditingController(
+    descriptionController = TextEditingController(
       text: widget.logement.description,
     );
 
-    prixController =
-        TextEditingController(
+    prixController = TextEditingController(
       text: widget.logement.prix.toString(),
     );
   }
@@ -61,84 +64,136 @@ class _ModifierLogementScreenState
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
+        child: Form(
+          key: _formKey,
+          child: Column(
+            children: [
 
-            TextField(
-              controller: titreController,
-              decoration: const InputDecoration(
-                labelText: "Titre",
+              TextFormField(
+                controller: titreController,
+                decoration: const InputDecoration(
+                  labelText: "Titre",
+                ),
+                validator: (value) {
+                  if (value == null ||
+                      value.trim().isEmpty) {
+                    return "Le titre est obligatoire";
+                  }
+                  return null;
+                },
               ),
-            ),
 
-            const SizedBox(height: 15),
+              const SizedBox(height: 15),
 
-            TextField(
-              controller: adresseController,
-              decoration: const InputDecoration(
-                labelText: "Adresse",
+              TextFormField(
+                controller: adresseController,
+                decoration: const InputDecoration(
+                  labelText: "Adresse",
+                ),
+                validator: (value) {
+                  if (value == null ||
+                      value.trim().isEmpty) {
+                    return "L'adresse est obligatoire";
+                  }
+                  return null;
+                },
               ),
-            ),
 
-            const SizedBox(height: 15),
+              const SizedBox(height: 15),
 
-            TextField(
-              controller: prixController,
-              decoration: const InputDecoration(
-                labelText: "Prix",
+              TextFormField(
+                controller: prixController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: "Prix",
+                ),
+                validator: (value) {
+                  if (value == null ||
+                      value.trim().isEmpty) {
+                    return "Le prix est obligatoire";
+                  }
+
+                  if (double.tryParse(value) ==
+                      null) {
+                    return "Veuillez saisir un prix valide";
+                  }
+
+                  return null;
+                },
               ),
-            ),
 
-            const SizedBox(height: 15),
+              const SizedBox(height: 15),
 
-            TextField(
-              controller: descriptionController,
-              maxLines: 4,
-              decoration: const InputDecoration(
-                labelText: "Description",
+              TextFormField(
+                controller: descriptionController,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  labelText: "Description",
+                ),
+                validator: (value) {
+                  if (value == null ||
+                      value.trim().isEmpty) {
+                    return "La description est obligatoire";
+                  }
+                  return null;
+                },
               ),
-            ),
 
-            const SizedBox(height: 20),
+              const SizedBox(height: 25),
 
-            ElevatedButton(
-              onPressed: () async {
-  bool success =
-      await LogementService.updateLogement(
-    id: widget.logement.id,
-    titre: titreController.text,
-    adresse: adresseController.text,
-    description: descriptionController.text,
-    prix: prixController.text,
-  );
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () async {
 
-  if (!mounted) return;
+                    if (!_formKey.currentState!
+                        .validate()) {
+                      return;
+                    }
 
-  if (success) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          "Logement modifié ✅",
-        ),
-      ),
-    );
+                    bool success =
+                        await LogementService
+                            .updateLogement(
+                      id: widget.logement.id,
+                      titre: titreController.text,
+                      adresse: adresseController.text,
+                      description:
+                          descriptionController.text,
+                      prix: prixController.text,
+                    );
 
-    Navigator.pop(context,true);
-  } else {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          "Erreur modification ❌",
-        ),
-      ),
-    );
-  }
-},
-              child: const Text(
-                "Modifier",
+                    if (!mounted) return;
+
+                    if (success) {
+                      ScaffoldMessenger.of(context)
+                          .showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            "Logement modifié ✅",
+                          ),
+                        ),
+                      );
+
+                      Navigator.pop(context, true);
+
+                    } else {
+                      ScaffoldMessenger.of(context)
+                          .showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            "Erreur modification ❌",
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                  child: const Text(
+                    "Modifier",
+                  ),
+                ),
               ),
-            )
-          ],
+            ],
+          ),
         ),
       ),
     );
