@@ -1,5 +1,7 @@
+
 import 'package:flutter/material.dart';
 
+import '../login_screen.dart';
 import 'ajouter_logement_screen.dart';
 import '../../models/logement.dart';
 import '../../services/logement_service.dart';
@@ -30,40 +32,50 @@ class _LogementListScreenState
     logementsFuture = LogementService.getLogements();
   }
 
- void filtrerLogements(String valeur) {
-  setState(() {
-    logementsFiltres = logements.where((logement) {
-
-      final titre =
-          logement.titre.toLowerCase();
-
-      final adresse =
-          logement.adresse.toLowerCase();
-
-      final recherche =
-          valeur.toLowerCase();
-
-      return titre.contains(recherche) ||
-             adresse.contains(recherche);
-
-    }).toList();
-  });
-}
-void trierPrixCroissant() {
-  setState(() {
-    logementsFiltres.sort(
-      (a, b) => a.prix.compareTo(b.prix),
+  // RETOUR VERS LOGIN
+  void retournerLogin() {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const LoginScreen(),
+      ),
+      (route) => false,
     );
-  });
-}
+  }
 
-void trierPrixDecroissant() {
-  setState(() {
-    logementsFiltres.sort(
-      (a, b) => b.prix.compareTo(a.prix),
-    );
-  });
-}
+  // RECHERCHE
+  void filtrerLogements(String valeur) {
+    setState(() {
+      logementsFiltres = logements.where((logement) {
+
+        final titre = logement.titre.toLowerCase();
+        final adresse = logement.adresse.toLowerCase();
+        final recherche = valeur.toLowerCase();
+
+        return titre.contains(recherche) ||
+            adresse.contains(recherche);
+
+      }).toList();
+    });
+  }
+
+  // TRI PRIX CROISSANT
+  void trierPrixCroissant() {
+    setState(() {
+      logementsFiltres.sort(
+        (a, b) => a.prix.compareTo(b.prix),
+      );
+    });
+  }
+
+  // TRI PRIX DECROISSANT
+  void trierPrixDecroissant() {
+    setState(() {
+      logementsFiltres.sort(
+        (a, b) => b.prix.compareTo(a.prix),
+      );
+    });
+  }
 
   @override
   void dispose() {
@@ -74,23 +86,29 @@ void trierPrixDecroissant() {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: retournerLogin,
+        ),
         title: const Text("Logements"),
       ),
 
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
+
           await Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) =>
-                  const AjouterLogementScreen(),
+              builder: (_) => const AjouterLogementScreen(),
             ),
           );
 
+          if (!mounted) return;
+
           setState(() {
-            logementsFuture =
-                LogementService.getLogements();
+            logementsFuture = LogementService.getLogements();
             logements.clear();
             logementsFiltres.clear();
           });
@@ -100,6 +118,7 @@ void trierPrixDecroissant() {
 
       body: FutureBuilder<List<Logement>>(
         future: logementsFuture,
+
         builder: (context, snapshot) {
 
           if (snapshot.connectionState ==
@@ -120,125 +139,128 @@ void trierPrixDecroissant() {
           final data = snapshot.data ?? [];
 
           if (logements.isEmpty) {
-            logements = data;
-            logementsFiltres = data;
+            logements = List.from(data);
+            logementsFiltres = List.from(data);
           }
 
-     if (data.isEmpty) {
-  return const Center(
-    child: Text(
-      "Aucun logement disponible",
-    ),
-  );
-}
+          if (data.isEmpty) {
+            return const Center(
+              child: Text("Aucun logement disponible"),
+            );
+          }
 
           return Column(
             children: [
 
+              // RECHERCHE
               Padding(
                 padding: const EdgeInsets.all(10),
+
                 child: TextField(
                   controller: rechercheController,
                   onChanged: filtrerLogements,
+
                   decoration: InputDecoration(
-                    hintText:
-                        "Rechercher un logement...",
-                    prefixIcon:
-                        const Icon(Icons.search),
+                    hintText: "Rechercher un logement...",
+                    prefixIcon: const Icon(Icons.search),
+
                     border: OutlineInputBorder(
-                      borderRadius:
-                          BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                 ),
               ),
-Padding(
-  padding: const EdgeInsets.symmetric(
-    horizontal: 10,
-  ),
-  child: Row(
-    children: [
 
-      Expanded(
-        child: ElevatedButton.icon(
-          onPressed: trierPrixCroissant,
-          icon: const Icon(Icons.arrow_upward),
-          label: const Text("Prix ↑"),
-        ),
-      ),
+              // TRI
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                ),
 
-      const SizedBox(width: 10),
+                child: Row(
+                  children: [
 
-      Expanded(
-        child: ElevatedButton.icon(
-          onPressed: trierPrixDecroissant,
-          icon: const Icon(Icons.arrow_downward),
-          label: const Text("Prix ↓"),
-        ),
-      ),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: trierPrixCroissant,
+                        icon: const Icon(Icons.arrow_upward),
+                        label: const Text("Prix ↑"),
+                      ),
+                    ),
 
-    ],
-  ),
-),
+                    const SizedBox(width: 10),
 
-          Expanded(
-  child: logementsFiltres.isEmpty
-      ? const Center(
-          child: Text(
-            "🔍 Aucun logement ne correspond à votre recherche",
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey,
-            ),
-          ),
-        )
-      : ListView.builder(
-                  itemCount:
-                      logementsFiltres.length,
-                  itemBuilder: (context, index) {
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: trierPrixDecroissant,
+                        icon: const Icon(Icons.arrow_downward),
+                        label: const Text("Prix ↓"),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
-                    final logement =
-                        logementsFiltres[index];
+              // LISTE DES LOGEMENTS
+              Expanded(
+                child: logementsFiltres.isEmpty
 
-                    return Card(
-                      margin: const EdgeInsets.all(10),
-                      child: ListTile(
-                        title:
-                            Text(logement.titre),
-                        subtitle:
-                            Text(logement.adresse),
-                        trailing: Text(
-                          "${logement.prix} DT",
+                    ? const Center(
+                        child: Text(
+                          "🔍 Aucun logement ne correspond à votre recherche",
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey,
+                          ),
                         ),
-                        onTap: () async {
+                      )
 
-                          final result =
-                              await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  LogementDetailScreen(
-                                logement: logement,
+                    : ListView.builder(
+                        itemCount: logementsFiltres.length,
+
+                        itemBuilder: (context, index) {
+
+                          final logement =
+                              logementsFiltres[index];
+
+                          return Card(
+                            margin: const EdgeInsets.all(10),
+
+                            child: ListTile(
+                              title: Text(logement.titre),
+                              subtitle: Text(logement.adresse),
+
+                              trailing: Text(
+                                "${logement.prix} DT",
                               ),
+
+                              onTap: () async {
+
+                                final result =
+                                    await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        LogementDetailScreen(
+                                      logement: logement,
+                                    ),
+                                  ),
+                                );
+
+                                if (result == true && mounted) {
+                                  setState(() {
+                                    logementsFuture =
+                                        LogementService.getLogements();
+
+                                    logements.clear();
+                                    logementsFiltres.clear();
+                                  });
+                                }
+                              },
                             ),
                           );
-
-                          if (result == true) {
-                            setState(() {
-                              logementsFuture =
-                                  LogementService
-                                      .getLogements();
-
-                              logements.clear();
-                              logementsFiltres
-                                  .clear();
-                            });
-                          }
                         },
                       ),
-                    );
-                  },
-                ),
               ),
             ],
           );

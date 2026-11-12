@@ -16,6 +16,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final phoneController = TextEditingController();
   final passwordController = TextEditingController();
 
+  String role = "visiteur";
+
   Future<void> register() async {
 
     bool success = await ApiService.register(
@@ -23,9 +25,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       email: emailController.text,
       phone: phoneController.text,
       password: passwordController.text,
+      role: role,
     );
 
-    if(success){
+    if (success) {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -40,7 +43,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
       );
 
-    }else{
+    } else {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -54,14 +57,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
 
     return Scaffold(
+      appBar: AppBar(
+        title: const Text("Inscription"),
+        backgroundColor: Colors.blue,
+      ),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(30),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
 
               const Text(
                 "DariGo",
+                textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 35,
                   fontWeight: FontWeight.bold,
@@ -75,6 +84,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 controller: usernameController,
                 decoration: const InputDecoration(
                   labelText: "Username",
+                  border: OutlineInputBorder(),
                 ),
               ),
 
@@ -84,6 +94,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 controller: emailController,
                 decoration: const InputDecoration(
                   labelText: "Email",
+                  border: OutlineInputBorder(),
                 ),
               ),
 
@@ -93,6 +104,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 controller: phoneController,
                 decoration: const InputDecoration(
                   labelText: "Phone",
+                  border: OutlineInputBorder(),
                 ),
               ),
 
@@ -103,18 +115,57 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 obscureText: true,
                 decoration: const InputDecoration(
                   labelText: "Password",
+                  border: OutlineInputBorder(),
                 ),
               ),
 
               const SizedBox(height: 25),
 
+              const Text(
+                "Choisir votre rôle",
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+
+              RadioListTile<String>(
+                title: const Text("Visiteur"),
+                value: "visiteur",
+                groupValue: role,
+                onChanged: (value) {
+                  setState(() {
+                    role = value!;
+                  });
+                },
+              ),
+
+              RadioListTile<String>(
+                title: const Text("Propriétaire"),
+                value: "proprietaire",
+                groupValue: role,
+                onChanged: (value) {
+                  setState(() {
+                    role = value!;
+                  });
+                },
+              ),
+
+              const SizedBox(height: 20),
+
               ElevatedButton(
                 onPressed: register,
-                child: const Text("Sign Up"),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                ),
+                child: const Text(
+                  "Sign Up",
+                  style: TextStyle(fontSize: 16),
+                ),
               ),
 
               TextButton(
-                onPressed: (){
+                onPressed: () {
                   Navigator.pushReplacement(
                     context,
                     MaterialPageRoute(
@@ -122,8 +173,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   );
                 },
-                child: const Text("Already have an account ? Sign In"),
-              )
+                child: const Text(
+                  "Already have an account ? Sign In",
+                ),
+              ),
             ],
           ),
         ),

@@ -1,9 +1,12 @@
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/api_service.dart';
 import 'register_screen.dart';
 import 'logements/logement_list_screen.dart';
+import 'logements/ajouter_logement_screen.dart';
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -12,33 +15,71 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+
   final TextEditingController usernameController =
       TextEditingController();
 
   final TextEditingController passwordController =
       TextEditingController();
 
-  Future<void> login() async {
-    try {
-      print("===== LOGIN =====");
-      print("Username: ${usernameController.text}");
-      print("Password: ${passwordController.text}");
+  bool isLoading = false;
 
-      final result = await ApiService.login(
-        username: usernameController.text.trim(),
-        password: passwordController.text.trim(),
+  // FONCTION LOGIN
+  Future<void> login() async {
+
+    if (usernameController.text.trim().isEmpty ||
+        passwordController.text.isEmpty) {
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Veuillez remplir tous les champs"),
+          backgroundColor: Colors.red,
+        ),
       );
 
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+
+      // Appel API Django
+      final result = await ApiService.login(
+        username: usernameController.text.trim(),
+        password: passwordController.text,
+      );
+
+      print("===== LOGIN =====");
       print("Réponse API : $result");
-      print("TOKEN = ${result?['access']}");
 
       if (result != null) {
-        SharedPreferences prefs =
+
+        // Récupérer le rôle
+        final String role =
+            result['role'].toString().toLowerCase();
+
+        print("ROLE UTILISATEUR : $role");
+
+        // Sauvegarder les informations
+        final SharedPreferences prefs =
             await SharedPreferences.getInstance();
 
         await prefs.setString(
           "access",
           result["access"],
+        );
+
+        await prefs.setString(
+          "refresh",
+          result["refresh"],
+        );
+
+        await prefs.setString(
+          "role",
+          role,
         );
 
         if (!mounted) return;
@@ -50,16 +91,39 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
 
-       print("Connexion réussie");
+        // REDIRECTION SELON LE ROLE
 
-Navigator.pushReplacement(
-  context,
-  MaterialPageRoute(
-    builder: (_) => const LogementListScreen(),
-  ),
-);
+        if (role == "proprietaire") {
+
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) =>
+                  const AjouterLogementScreen(),
+            ),
+          );
+
+        } else if (role == "visiteur") {
+
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) =>
+                  const LogementListScreen(),
+            ),
+          );
+
+        } else {
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Rôle inconnu : $role"),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+
       } else {
-        if (!mounted) return;
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -69,10 +133,10 @@ Navigator.pushReplacement(
             backgroundColor: Colors.red,
           ),
         );
-
-        print("Résultat NULL");
       }
+
     } catch (e) {
+
       print("ERREUR LOGIN : $e");
 
       if (!mounted) return;
@@ -83,6 +147,14 @@ Navigator.pushReplacement(
           backgroundColor: Colors.red,
         ),
       );
+
+    } finally {
+
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 
@@ -93,14 +165,19 @@ Navigator.pushReplacement(
     super.dispose();
   }
 
+  // INTERFACE LOGIN
   @override
   Widget build(BuildContext context) {
+
     return Scaffold(
+
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(30),
+
           child: Column(
             children: [
+
               const Text(
                 "DariGo",
                 style: TextStyle(
@@ -112,47 +189,63 @@ Navigator.pushReplacement(
 
               const SizedBox(height: 40),
 
+              // USERNAME
               TextField(
                 controller: usernameController,
                 decoration: const InputDecoration(
                   labelText: "Username",
                   border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.person),
                 ),
               ),
 
               const SizedBox(height: 20),
 
+              // PASSWORD
               TextField(
                 controller: passwordController,
                 obscureText: true,
                 decoration: const InputDecoration(
                   labelText: "Password",
                   border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.lock),
                 ),
               ),
 
               const SizedBox(height: 25),
 
+              // BUTTON LOGIN
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: login,
-                  child: const Text("Sign In"),
+                  onPressed: isLoading ? null : login,
+
+                  child: isLoading
+                      ? const CircularProgressIndicator(
+                          color: Colors.white,
+                        )
+                      : const Text("Sign In"),
                 ),
               ),
 
               const SizedBox(height: 10),
 
+              // CREATE ACCOUNT
               TextButton(
                 onPressed: () {
+
                   Navigator.pushReplacement(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const RegisterScreen(),
+                      builder: (_) =>
+                          const RegisterScreen(),
                     ),
                   );
+
                 },
-                child: const Text("Create Account"),
+                child: const Text(
+                  "Create Account",
+                ),
               ),
             ],
           ),

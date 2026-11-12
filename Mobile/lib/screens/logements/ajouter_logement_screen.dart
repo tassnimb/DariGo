@@ -1,5 +1,7 @@
+
 import 'package:flutter/material.dart';
 import '../../services/logement_service.dart';
+import '../login_screen.dart';
 
 class AjouterLogementScreen extends StatefulWidget {
   const AjouterLogementScreen({super.key});
@@ -28,24 +30,44 @@ class _AjouterLogementScreenState
     super.dispose();
   }
 
+  // RETOUR VERS LOGIN
+  void retournerLogin() {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const LoginScreen(),
+      ),
+      (route) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: retournerLogin,
+        ),
         title: const Text("Ajouter un logement"),
       ),
+
       body: Padding(
         padding: const EdgeInsets.all(16),
+
         child: SingleChildScrollView(
           child: Form(
             key: _formKey,
+
             child: Column(
               children: [
 
+                // TITRE
                 TextFormField(
                   controller: titreController,
                   decoration: const InputDecoration(
                     labelText: "Titre",
+                    border: OutlineInputBorder(),
                   ),
                   validator: (value) {
                     if (value == null ||
@@ -58,10 +80,12 @@ class _AjouterLogementScreenState
 
                 const SizedBox(height: 15),
 
+                // ADRESSE
                 TextFormField(
                   controller: adresseController,
                   decoration: const InputDecoration(
                     labelText: "Adresse",
+                    border: OutlineInputBorder(),
                   ),
                   validator: (value) {
                     if (value == null ||
@@ -74,40 +98,43 @@ class _AjouterLogementScreenState
 
                 const SizedBox(height: 15),
 
+                // PRIX
                 TextFormField(
                   controller: prixController,
-                  keyboardType:
-                      TextInputType.number,
+                  keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
                     labelText: "Prix",
+                    border: OutlineInputBorder(),
                   ),
-         validator: (value) {
-  if (value == null ||
-      value.trim().isEmpty) {
-    return "Le prix est obligatoire";
-  }
+                  validator: (value) {
+                    if (value == null ||
+                        value.trim().isEmpty) {
+                      return "Le prix est obligatoire";
+                    }
 
-  final prix = double.tryParse(value);
+                    final prix = double.tryParse(value);
 
-  if (prix == null) {
-    return "Veuillez saisir un prix valide";
-  }
+                    if (prix == null) {
+                      return "Veuillez saisir un prix valide";
+                    }
 
-  if (prix <= 0) {
-    return "Le prix doit être supérieur à 0";
-  }
+                    if (prix <= 0) {
+                      return "Le prix doit être supérieur à 0";
+                    }
 
-  return null;
-},
+                    return null;
+                  },
                 ),
 
                 const SizedBox(height: 15),
 
+                // DESCRIPTION
                 TextFormField(
                   controller: descriptionController,
                   maxLines: 4,
                   decoration: const InputDecoration(
                     labelText: "Description",
+                    border: OutlineInputBorder(),
                   ),
                   validator: (value) {
                     if (value == null ||
@@ -120,55 +147,46 @@ class _AjouterLogementScreenState
 
                 const SizedBox(height: 25),
 
+                // BOUTON AJOUTER
                 SizedBox(
                   width: double.infinity,
+
                   child: ElevatedButton(
                     onPressed: () async {
 
-                      if (!_formKey.currentState!
-                          .validate()) {
+                      if (!_formKey.currentState!.validate()) {
                         return;
                       }
 
                       bool success =
-                          await LogementService
-                              .addLogement(
-                        titre: titreController.text,
-                        adresse:
-                            adresseController.text,
+                          await LogementService.addLogement(
+                        titre: titreController.text.trim(),
+                        adresse: adresseController.text.trim(),
                         description:
-                            descriptionController
-                                .text,
-                        prix: prixController.text,
+                            descriptionController.text.trim(),
+                        prix: prixController.text.trim(),
                       );
 
                       if (!mounted) return;
 
                       if (success) {
 
-                        ScaffoldMessenger.of(
-                                context)
-                            .showSnackBar(
+                        ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text(
-                              "Logement ajouté ✅",
-                            ),
+                            content: Text("Logement ajouté ✅"),
                           ),
                         );
 
                         titreController.clear();
                         adresseController.clear();
-                        descriptionController
-                            .clear();
+                        descriptionController.clear();
                         prixController.clear();
 
                         Navigator.pop(context);
 
                       } else {
 
-                        ScaffoldMessenger.of(
-                                context)
-                            .showSnackBar(
+                        ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text(
                               "Erreur lors de l'ajout ❌",
@@ -177,9 +195,8 @@ class _AjouterLogementScreenState
                         );
                       }
                     },
-                    child: const Text(
-                      "Ajouter",
-                    ),
+
+                    child: const Text("Ajouter"),
                   ),
                 ),
               ],
