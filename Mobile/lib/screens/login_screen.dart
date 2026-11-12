@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import 'register_screen.dart';
 import 'logements/logement_list_screen.dart';
-import 'logements/ajouter_logement_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -15,7 +14,6 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-
   final TextEditingController usernameController =
       TextEditingController();
 
@@ -24,19 +22,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool isLoading = false;
 
-  // FONCTION LOGIN
   Future<void> login() async {
-
     if (usernameController.text.trim().isEmpty ||
         passwordController.text.isEmpty) {
-
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("Veuillez remplir tous les champs"),
           backgroundColor: Colors.red,
         ),
       );
-
       return;
     }
 
@@ -45,111 +39,76 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-
-      // Appel API Django
       final result = await ApiService.login(
         username: usernameController.text.trim(),
         password: passwordController.text,
       );
 
-      print("===== LOGIN =====");
-      print("Réponse API : $result");
-
-      if (result != null) {
-
-        // Récupérer le rôle
-        final String role =
-            result['role'].toString().toLowerCase();
-
-        print("ROLE UTILISATEUR : $role");
-
-        // Sauvegarder les informations
-        final SharedPreferences prefs =
-            await SharedPreferences.getInstance();
-
-        await prefs.setString(
-          "access",
-          result["access"],
-        );
-
-        await prefs.setString(
-          "refresh",
-          result["refresh"],
-        );
-
-        await prefs.setString(
-          "role",
-          role,
-        );
-
+      if (result == null) {
         if (!mounted) return;
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("Connexion réussie ✅"),
-            backgroundColor: Colors.green,
-          ),
-        );
-
-        // REDIRECTION SELON LE ROLE
-
-        if (role == "proprietaire") {
-
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (_) =>
-                  const AjouterLogementScreen(),
-            ),
-          );
-
-        } else if (role == "visiteur") {
-
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (_) =>
-                  const LogementListScreen(),
-            ),
-          );
-
-        } else {
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text("Rôle inconnu : $role"),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-
-      } else {
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
             content: Text(
-              "Nom d'utilisateur ou mot de passe incorrect ❌",
+              "Nom d'utilisateur ou mot de passe incorrect",
             ),
             backgroundColor: Colors.red,
           ),
         );
+        return;
       }
 
+      final String role =
+          (result['role'] ?? '').toString().toLowerCase();
+
+      final String access = result['access'] ?? '';
+      final String refresh = result['refresh'] ?? '';
+
+      if (access.isEmpty || refresh.isEmpty) {
+        throw Exception("Les jetons d'authentification sont absents.");
+      }
+
+      final SharedPreferences prefs =
+          await SharedPreferences.getInstance();
+
+      await prefs.setString("access", access);
+      await prefs.setString("refresh", refresh);
+      await prefs.setString("role", role);
+
+      if (!mounted) return;
+
+      if (role == "proprietaire" || role == "visiteur") {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Connexion réussie !"),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const LogementListScreen(),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Rôle inconnu : $role"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } catch (e) {
-
-      print("ERREUR LOGIN : $e");
-
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("Erreur : $e"),
+          content: Text("Erreur de connexion : $e"),
           backgroundColor: Colors.red,
         ),
       );
-
     } finally {
-
       if (mounted) {
         setState(() {
           isLoading = false;
@@ -165,19 +124,14 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  // INTERFACE LOGIN
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
-
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(30),
-
           child: Column(
             children: [
-
               const Text(
                 "DariGo",
                 style: TextStyle(
@@ -189,7 +143,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const SizedBox(height: 40),
 
-              // USERNAME
               TextField(
                 controller: usernameController,
                 decoration: const InputDecoration(
@@ -201,7 +154,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const SizedBox(height: 20),
 
-              // PASSWORD
               TextField(
                 controller: passwordController,
                 obscureText: true,
@@ -214,12 +166,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const SizedBox(height: 25),
 
-              // BUTTON LOGIN
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: isLoading ? null : login,
-
                   child: isLoading
                       ? const CircularProgressIndicator(
                           color: Colors.white,
@@ -230,22 +180,16 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const SizedBox(height: 10),
 
-              // CREATE ACCOUNT
               TextButton(
                 onPressed: () {
-
                   Navigator.pushReplacement(
                     context,
                     MaterialPageRoute(
-                      builder: (_) =>
-                          const RegisterScreen(),
+                      builder: (_) => const RegisterScreen(),
                     ),
                   );
-
                 },
-                child: const Text(
-                  "Create Account",
-                ),
+                child: const Text("Create Account"),
               ),
             ],
           ),

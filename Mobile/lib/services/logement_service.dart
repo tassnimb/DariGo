@@ -1,3 +1,4 @@
+
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -9,25 +10,29 @@ class LogementService {
   static const String baseUrl =
       "http://127.0.0.1:8000/api/logements/";
 
+  static Future<Map<String, String>> _headers() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString("access");
+
+    if (token == null || token.isEmpty) {
+      throw Exception("Session expirée. Veuillez vous reconnecter.");
+    }
+
+    return {
+      "Authorization": "Bearer $token",
+      "Content-Type": "application/json",
+    };
+  }
+
+  // AFFICHER LES LOGEMENTS
   static Future<List<Logement>> getLogements() async {
-    SharedPreferences prefs =
-        await SharedPreferences.getInstance();
-
-    String? token = prefs.getString("access");
-
     final response = await http.get(
       Uri.parse(baseUrl),
-      headers: {
-        "Authorization": "Bearer $token",
-        "Content-Type": "application/json",
-      },
+      headers: await _headers(),
     );
 
-    print("STATUS CODE : ${response.statusCode}");
-    print("BODY : ${response.body}");
-
     if (response.statusCode == 200) {
-      List data = jsonDecode(response.body);
+      final List data = jsonDecode(response.body);
 
       return data
           .map((e) => Logement.fromJson(e))
@@ -39,24 +44,16 @@ class LogementService {
     );
   }
 
-  // AJOUTE CETTE METHODE ICI
+  // AJOUTER UN LOGEMENT
   static Future<bool> addLogement({
     required String titre,
     required String adresse,
     required String description,
     required String prix,
   }) async {
-    SharedPreferences prefs =
-        await SharedPreferences.getInstance();
-
-    String? token = prefs.getString("access");
-
     final response = await http.post(
       Uri.parse(baseUrl),
-      headers: {
-        "Authorization": "Bearer $token",
-        "Content-Type": "application/json",
-      },
+      headers: await _headers(),
       body: jsonEncode({
         "titre": titre,
         "adresse": adresse,
@@ -65,29 +62,20 @@ class LogementService {
       }),
     );
 
-    print(response.statusCode);
-    print(response.body);
-
     return response.statusCode == 201;
   }
-    static Future<bool> updateLogement({
+
+  // MODIFIER UN LOGEMENT
+  static Future<bool> updateLogement({
     required int id,
     required String titre,
     required String adresse,
     required String description,
     required String prix,
   }) async {
-    SharedPreferences prefs =
-        await SharedPreferences.getInstance();
-
-    String? token = prefs.getString("access");
-
     final response = await http.put(
       Uri.parse("$baseUrl$id/"),
-      headers: {
-        "Authorization": "Bearer $token",
-        "Content-Type": "application/json",
-      },
+      headers: await _headers(),
       body: jsonEncode({
         "titre": titre,
         "adresse": adresse,
@@ -96,27 +84,16 @@ class LogementService {
       }),
     );
 
-    print(response.statusCode);
-    print(response.body);
-
     return response.statusCode == 200;
   }
+
+  // SUPPRIMER UN LOGEMENT
   static Future<bool> deleteLogement(int id) async {
-  SharedPreferences prefs =
-      await SharedPreferences.getInstance();
+    final response = await http.delete(
+      Uri.parse("$baseUrl$id/"),
+      headers: await _headers(),
+    );
 
-  String? token = prefs.getString("access");
-
-  final response = await http.delete(
-    Uri.parse("$baseUrl$id/"),
-    headers: {
-      "Authorization": "Bearer $token",
-      "Content-Type": "application/json",
-    },
-  );
-
-  print(response.statusCode);
-
-  return response.statusCode == 204;
-}
+    return response.statusCode == 204;
+  }
 }

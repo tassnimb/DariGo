@@ -1,3 +1,4 @@
+
 class Logement {
   final int id;
   final String titre;
@@ -15,11 +16,11 @@ class Logement {
 
   factory Logement.fromJson(Map<String, dynamic> json) {
     return Logement(
-      id: json['id'],
-      titre: json['titre'],
-      description: json['description'],
-      adresse: json['adresse'],
-      prix: double.parse(json['prix'].toString()),
+      id: int.parse(json['id'].toString()),
+      titre: json['titre']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
+      adresse: json['adresse']?.toString() ?? '',
+      prix: double.tryParse(json['prix'].toString()) ?? 0.0,
     );
   }
 }

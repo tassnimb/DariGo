@@ -1,143 +1,279 @@
+
 import 'package:flutter/material.dart';
+
 import '../../models/logement.dart';
-import 'modifier_logement_screen.dart';
 import '../../services/logement_service.dart';
-class LogementDetailScreen extends StatelessWidget {
+import 'modifier_logement_screen.dart';
+import 'reservation_screen.dart';
+
+class LogementDetailScreen extends StatefulWidget {
   final Logement logement;
+  final bool isProprietaire;
 
   const LogementDetailScreen({
     super.key,
     required this.logement,
+    required this.isProprietaire,
   });
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(logement.titre),
-      ),  floatingActionButton: FloatingActionButton(
-    child: const Icon(Icons.edit),
-  onPressed: () async {
-  final result = await Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => ModifierLogementScreen(
-        logement: logement,
-      ),
-    ),
-  );
+  State<LogementDetailScreen> createState() =>
+      _LogementDetailScreenState();
+}
 
-  if (result == true) {
-    Navigator.pop(context, true);
+class _LogementDetailScreenState
+    extends State<LogementDetailScreen> {
+  bool isDeleting = false;
+
+  static const violet = Color(0xFF6C4AB6);
+
+  Future<void> modifierLogement() async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ModifierLogementScreen(
+          logement: widget.logement,
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+
+    if (result == true) {
+      Navigator.pop(context, true);
+    }
   }
-},
-  ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
+
+  Future<void> reserverLogement() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ReservationScreen(
+          logement: widget.logement,
+        ),
+      ),
+    );
+  }
+
+  Future<void> supprimerLogement() async {
+    final confirmer = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Supprimer le logement'),
+        content: const Text(
+          'Voulez-vous vraiment supprimer ce logement ?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(dialogContext, false);
+            },
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              Navigator.pop(dialogContext, true);
+            },
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmer != true || !mounted) return;
+
+    setState(() {
+      isDeleting = true;
+    });
+
+    try {
+      final success = await LogementService.deleteLogement(
+        widget.logement.id,
+      );
+
+      if (!mounted) return;
+
+      if (success) {
+        Navigator.pop(context, true);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Erreur lors de la suppression'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur : $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          isDeleting = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final logement = widget.logement;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF7F6FA),
+      appBar: AppBar(
+        title: const Text('Détail du logement'),
+        backgroundColor: violet,
+        foregroundColor: Colors.white,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Container(
+              width: double.infinity,
+              height: 190,
+              decoration: BoxDecoration(
+                color: violet.withOpacity(0.10),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Icon(
+                Icons.home_work_outlined,
+                color: violet,
+                size: 85,
+              ),
+            ),
+
+            const SizedBox(height: 22),
+
             Text(
               logement.titre,
               style: const TextStyle(
-                fontSize: 24,
+                fontSize: 25,
                 fontWeight: FontWeight.bold,
               ),
             ),
 
-            const SizedBox(height: 15),
+            const SizedBox(height: 12),
 
-            Text(
-              "Adresse : ${logement.adresse}",
+            Row(
+              children: [
+                const Icon(
+                  Icons.location_on_outlined,
+                  color: violet,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    logement.adresse,
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                ),
+              ],
             ),
 
-            const SizedBox(height: 10),
+            const SizedBox(height: 18),
 
-            Text(
-              "Prix : ${logement.prix} DT",
+            Container(
+              padding: const EdgeInsets.all(16),
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: violet.withOpacity(0.10),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Text(
+                '${logement.prix.toStringAsFixed(0)} DT',
+                style: const TextStyle(
+                  fontSize: 23,
+                  fontWeight: FontWeight.bold,
+                  color: violet,
+                ),
+              ),
             ),
 
-            const SizedBox(height: 15),
+            const SizedBox(height: 24),
 
             const Text(
-              "Description",
+              'Description',
               style: TextStyle(
+                fontSize: 19,
                 fontWeight: FontWeight.bold,
               ),
             ),
 
             const SizedBox(height: 10),
 
-           Text(logement.description),
+            Text(
+              logement.description,
+              style: const TextStyle(
+                fontSize: 16,
+                height: 1.5,
+              ),
+            ),
 
-const SizedBox(height: 30),
+            if (!widget.isProprietaire) ...[
+              const SizedBox(height: 30),
 
-SizedBox(
-  width: double.infinity,
-  child: ElevatedButton(
-    style: ElevatedButton.styleFrom(
-      backgroundColor: Colors.red,
-    ),
-    onPressed: () async {
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: reserverLogement,
+                  icon: const Icon(Icons.calendar_month),
+                  label: const Text('Réserver ce logement'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: violet,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.all(15),
+                  ),
+                ),
+              ),
+            ],
 
-  final confirmer = await showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text("Confirmation"),
-      content: const Text(
-        "Voulez-vous vraiment supprimer ce logement ?",
-      ),
-      actions: [
-        TextButton(
-          onPressed: () {
-            Navigator.pop(context, false);
-          },
-          child: const Text("Annuler"),
-        ),
-        TextButton(
-          onPressed: () {
-            Navigator.pop(context, true);
-          },
-          child: const Text("Supprimer"),
-        ),
-      ],
-    ),
-  );
+            if (widget.isProprietaire) ...[
+              const SizedBox(height: 30),
 
-  if (confirmer != true) return;
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: modifierLogement,
+                  icon: const Icon(Icons.edit_outlined),
+                  label: const Text('Modifier le logement'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: violet,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.all(15),
+                  ),
+                ),
+              ),
 
-  bool success =
-      await LogementService.deleteLogement(
-    logement.id,
-  );
+              const SizedBox(height: 12),
 
-  if (!context.mounted) return;
-
-  if (success) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(
-      const SnackBar(
-        content: Text(
-          "Logement supprimé ✅",
-        ),
-      ),
-    );
-
-    Navigator.pop(context, true);
-  } else {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(
-      const SnackBar(
-        content: Text(
-          "Erreur suppression ❌",
-        ),
-      ),
-    );
-  }
-},
-    child: const Text("Supprimer"),
-  ),
-),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: isDeleting ? null : supprimerLogement,
+                  icon: const Icon(Icons.delete_outline),
+                  label: Text(
+                    isDeleting
+                        ? 'Suppression...'
+                        : 'Supprimer le logement',
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    side: const BorderSide(color: Colors.red),
+                    padding: const EdgeInsets.all(15),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
