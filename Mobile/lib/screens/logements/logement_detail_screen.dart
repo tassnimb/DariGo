@@ -1,10 +1,14 @@
 
 import 'package:flutter/material.dart';
+
 import '../../models/logement.dart';
 import '../../services/logement_service.dart';
 import '../../services/avis_service.dart';
+import '../../services/messagerie_service.dart';
+
 import 'modifier_logement_screen.dart';
 import 'reservation_screen.dart';
+import '../messagerie/chat_screen.dart';
 
 class LogementDetailScreen extends StatefulWidget {
   final Logement logement;
@@ -24,6 +28,8 @@ class LogementDetailScreen extends StatefulWidget {
 class _LogementDetailScreenState
     extends State<LogementDetailScreen> {
   bool isDeleting = false;
+  bool isContacting = false;
+
   late Future<List<Map<String, dynamic>>> avisFuture;
 
   static const violet = Color(0xFF6C4AB6);
@@ -62,6 +68,64 @@ class _LogementDetailScreenState
     );
   }
 
+  // Contacter le propriétaire
+  Future<void> contacterProprietaire() async {
+    if (isContacting) return;
+
+    setState(() {
+      isContacting = true;
+    });
+
+    try {
+      final conversation =
+          await MessagerieService.creerConversation(
+        widget.logement.id,
+      );
+
+      if (!mounted) return;
+
+      final conversationId = conversation['id'];
+      final proprietaire = conversation['proprietaire'];
+
+      if (conversationId == null) {
+        throw Exception(
+          'Identifiant de conversation introuvable.',
+        );
+      }
+
+      final username = proprietaire is Map
+          ? proprietaire['username'] ?? 'Propriétaire'
+          : 'Propriétaire';
+
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ChatScreen(
+            conversationId:
+                int.parse(conversationId.toString()),
+            username: username.toString(),
+            logementTitre: widget.logement.titre,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur : $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          isContacting = false;
+        });
+      }
+    }
+  }
+
   Future<void> supprimerLogement() async {
     final confirmer = await showDialog<bool>(
       context: context,
@@ -72,7 +136,8 @@ class _LogementDetailScreenState
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
+            onPressed: () =>
+                Navigator.pop(dialogContext, false),
             child: const Text('Annuler'),
           ),
           ElevatedButton(
@@ -80,7 +145,8 @@ class _LogementDetailScreenState
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
             ),
-            onPressed: () => Navigator.pop(dialogContext, true),
+            onPressed: () =>
+                Navigator.pop(dialogContext, true),
             child: const Text('Supprimer'),
           ),
         ],
@@ -94,7 +160,8 @@ class _LogementDetailScreenState
     });
 
     try {
-      final success = await LogementService.deleteLogement(
+      final success =
+          await LogementService.deleteLogement(
         widget.logement.id,
       );
 
@@ -143,7 +210,8 @@ class _LogementDetailScreenState
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: avisFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.connectionState ==
+            ConnectionState.waiting) {
           return const Center(
             child: CircularProgressIndicator(),
           );
@@ -179,7 +247,7 @@ class _LogementDetailScreenState
             Container(
               padding: const EdgeInsets.all(15),
               decoration: BoxDecoration(
-                color: violet.withOpacity(0.08),
+                color: violet.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Row(
@@ -195,7 +263,8 @@ class _LogementDetailScreenState
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment:
+                          CrossAxisAlignment.start,
                       children: [
                         construireEtoiles(moyenne),
                         Text(
@@ -214,17 +283,21 @@ class _LogementDetailScreenState
             const SizedBox(height: 15),
 
             ...avis.map((item) {
-              final note = (item['note'] as num).toDouble();
+              final note =
+                  (item['note'] as num).toDouble();
 
               return Card(
-                margin: const EdgeInsets.only(bottom: 12),
+                margin:
+                    const EdgeInsets.only(bottom: 12),
                 child: Padding(
                   padding: const EdgeInsets.all(14),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment:
+                        CrossAxisAlignment.start,
                     children: [
                       Text(
-                        item['visiteur_username'] ?? 'Visiteur',
+                        item['visiteur_username'] ??
+                            'Visiteur',
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
@@ -234,10 +307,14 @@ class _LogementDetailScreenState
                       construireEtoiles(note),
                       const SizedBox(height: 8),
                       Text(
-                        (item['commentaire'] ?? '').toString().isEmpty
+                        (item['commentaire'] ?? '')
+                                .toString()
+                                .isEmpty
                             ? 'Aucun commentaire.'
-                            : item['commentaire'].toString(),
-                        style: const TextStyle(fontSize: 15),
+                            : item['commentaire']
+                                .toString(),
+                        style:
+                            const TextStyle(fontSize: 15),
                       ),
                     ],
                   ),
@@ -270,7 +347,7 @@ class _LogementDetailScreenState
               width: double.infinity,
               height: 190,
               decoration: BoxDecoration(
-                color: violet.withOpacity(0.10),
+                color: violet.withValues(alpha: 0.10),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: const Icon(
@@ -361,14 +438,49 @@ class _LogementDetailScreenState
 
             afficherAvis(),
 
+            // Boutons du visiteur
             if (!widget.isProprietaire) ...[
               const SizedBox(height: 30),
+
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: isContacting
+                      ? null
+                      : contacterProprietaire,
+                  icon: isContacting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.chat),
+                  label: Text(
+                    isContacting
+                        ? 'Ouverture de la conversation...'
+                        : 'Contacter le propriétaire',
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.deepPurple,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.all(15),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: reserverLogement,
                   icon: const Icon(Icons.calendar_month),
-                  label: const Text('Réserver ce logement'),
+                  label: const Text(
+                    'Réserver ce logement',
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: violet,
                     foregroundColor: Colors.white,
@@ -378,14 +490,18 @@ class _LogementDetailScreenState
               ),
             ],
 
+            // Boutons du propriétaire
             if (widget.isProprietaire) ...[
               const SizedBox(height: 30),
+
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: modifierLogement,
                   icon: const Icon(Icons.edit_outlined),
-                  label: const Text('Modifier le logement'),
+                  label: const Text(
+                    'Modifier le logement',
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: violet,
                     foregroundColor: Colors.white,
@@ -410,7 +526,9 @@ class _LogementDetailScreenState
                   ),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.red,
-                    side: const BorderSide(color: Colors.red),
+                    side: const BorderSide(
+                      color: Colors.red,
+                    ),
                     padding: const EdgeInsets.all(15),
                   ),
                 ),

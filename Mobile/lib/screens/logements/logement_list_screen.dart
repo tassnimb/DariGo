@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
+import '../messagerie/conversations_screen.dart';
 import '../favoris/mes_favoris_screen.dart';
 import '../../services/favori_service.dart';
 import '../../services/logement_service.dart';
@@ -275,7 +275,18 @@ class _LogementListScreenState extends State<LogementListScreen> {
                 );
               },
             ),
-
+IconButton(
+  tooltip: 'Mes conversations',
+  icon: const Icon(Icons.chat_bubble_outline),
+  onPressed: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const ConversationsScreen(),
+      ),
+    );
+  },
+),
           if (!isProprietaire)
             IconButton(
               tooltip: 'Mes favoris',
