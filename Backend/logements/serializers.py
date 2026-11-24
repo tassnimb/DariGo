@@ -1,20 +1,22 @@
-from rest_framework import serializers
-from .models import Logement
+
 from rest_framework import serializers
 from django.utils import timezone
+
 from .models import (
     Logement,
     Reservation,
     Favori,
     Avis,
 )
-from django.db import transaction
-from rest_framework.exceptions import ValidationError
+
+
 class LogementSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = Logement
         fields = "__all__"
         read_only_fields = ["proprietaire", "date_creation"]
+
 
 class ReservationSerializer(serializers.ModelSerializer):
 
@@ -91,19 +93,22 @@ class ReservationSerializer(serializers.ModelSerializer):
                 "Vous ne pouvez pas réserver votre propre logement."
             )
 
+        # Vérifier les réservations en attente et acceptées
         conflit = Reservation.objects.filter(
             logement=logement,
-            statut='acceptee',
+            statut__in=['en_attente', 'acceptee'],
             date_arrivee__lt=date_depart,
             date_depart__gt=date_arrivee,
         ).exists()
 
         if conflit:
             raise serializers.ValidationError(
-                "Ce logement est déjà réservé pour ces dates."
+                "Ce logement n'est pas disponible pour ces dates. "
+                "Veuillez choisir une autre période."
             )
 
         return attrs
+
 
 class ReservationStatutSerializer(serializers.ModelSerializer):
 
@@ -112,13 +117,15 @@ class ReservationStatutSerializer(serializers.ModelSerializer):
         fields = ['statut']
 
     def validate_statut(self, value):
-        if value not in ['acceptee', 'refusee','annulee']:
+
+        if value not in ['acceptee', 'refusee', 'annulee']:
             raise serializers.ValidationError(
                 "Statut non autorisé."
             )
 
         return value
-    
+
+
 class FavoriSerializer(serializers.ModelSerializer):
 
     logement_titre = serializers.CharField(
@@ -150,6 +157,7 @@ class AvisSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Avis
+
         fields = [
             'id',
             'reservation',
@@ -169,8 +177,10 @@ class AvisSerializer(serializers.ModelSerializer):
         ]
 
     def validate_note(self, value):
+
         if value < 1 or value > 5:
             raise serializers.ValidationError(
                 "La note doit être comprise entre 1 et 5."
             )
+
         return value

@@ -1,16 +1,17 @@
 
+from django.db import transaction
+from django.shortcuts import get_object_or_404
+
 from rest_framework import generics, permissions
 from rest_framework.exceptions import PermissionDenied, ValidationError
-from django.db import transaction
-from .models import Favori
-from .serializers import FavoriSerializer
+
 from .models import (
     Logement,
     Reservation,
     Favori,
     Avis,
 )
-from django.shortcuts import get_object_or_404
+
 from .serializers import (
     LogementSerializer,
     ReservationSerializer,
@@ -20,7 +21,12 @@ from .serializers import (
 )
 
 
+# =====================================
+# LOGEMENTS
+# =====================================
+
 class LogementListCreateView(generics.ListCreateAPIView):
+
     serializer_class = LogementSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -36,6 +42,7 @@ class LogementListCreateView(generics.ListCreateAPIView):
         return Logement.objects.all()
 
     def perform_create(self, serializer):
+
         serializer.save(
             proprietaire=self.request.user
         )
@@ -44,16 +51,23 @@ class LogementListCreateView(generics.ListCreateAPIView):
 class LogementRetrieveUpdateDeleteView(
     generics.RetrieveUpdateDestroyAPIView
 ):
+
     serializer_class = LogementSerializer
     permission_classes = [permissions.IsAuthenticated]
     queryset = Logement.objects.all()
 
 
+# =====================================
+# RESERVATIONS
+# =====================================
+
 class ReservationListCreateView(generics.ListCreateAPIView):
+
     serializer_class = ReservationSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+
         user = self.request.user
 
         if user.role == 'visiteur':
@@ -68,19 +82,50 @@ class ReservationListCreateView(generics.ListCreateAPIView):
 
         return Reservation.objects.none()
 
+    @transaction.atomic
     def perform_create(self, serializer):
+
         if self.request.user.role != 'visiteur':
             raise PermissionDenied(
                 "Seul un visiteur peut réserver un logement."
             )
 
-        serializer.save(visiteur=self.request.user)
+        logement_id = serializer.validated_data['logement'].pk
+
+        # Verrouiller le logement pour éviter les demandes simultanées
+        logement = Logement.objects.select_for_update().get(
+            pk=logement_id
+        )
+
+        date_arrivee = serializer.validated_data['date_arrivee']
+        date_depart = serializer.validated_data['date_depart']
+
+        # Nouvelle vérification après le verrouillage
+        conflit = Reservation.objects.filter(
+            logement=logement,
+            statut__in=['en_attente', 'acceptee'],
+            date_arrivee__lt=date_depart,
+            date_depart__gt=date_arrivee,
+        ).exists()
+
+        if conflit:
+            raise ValidationError(
+                "Ce logement n'est pas disponible pour ces dates. "
+                "Veuillez choisir une autre période."
+            )
+
+        serializer.save(
+            visiteur=self.request.user,
+            logement=logement
+        )
 
 
 class ReservationDetailView(generics.RetrieveUpdateAPIView):
+
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+
         user = self.request.user
 
         if user.role == 'visiteur':
@@ -96,6 +141,7 @@ class ReservationDetailView(generics.RetrieveUpdateAPIView):
         return Reservation.objects.none()
 
     def get_serializer_class(self):
+
         if self.request.method in ['PUT', 'PATCH']:
             return ReservationStatutSerializer
 
@@ -141,6 +187,7 @@ class ReservationDetailView(generics.RetrieveUpdateAPIView):
 
     @transaction.atomic
     def perform_update(self, serializer):
+
         reservation = serializer.instance
 
         nouveau_statut = serializer.validated_data.get(
@@ -150,12 +197,15 @@ class ReservationDetailView(generics.RetrieveUpdateAPIView):
 
         if nouveau_statut == 'acceptee':
 
-            Logement.objects.select_for_update().get(
+            # Verrouiller le logement avant de vérifier
+            logement = Logement.objects.select_for_update().get(
                 pk=reservation.logement_id
             )
 
+            # Une autre réservation acceptée ne doit pas
+            # occuper les mêmes dates
             conflit = Reservation.objects.filter(
-                logement=reservation.logement,
+                logement=logement,
                 statut='acceptee',
                 date_arrivee__lt=reservation.date_depart,
                 date_depart__gt=reservation.date_arrivee,
@@ -165,52 +215,58 @@ class ReservationDetailView(generics.RetrieveUpdateAPIView):
 
             if conflit:
                 raise ValidationError(
-                    "Ce logement est déjà réservé pour ces dates."
+                    "Une autre réservation est déjà acceptée "
+                    "pour ces dates."
                 )
 
         serializer.save()
 
-class FavoriListCreateView(
-    generics.ListCreateAPIView
-):
+
+# =====================================
+# FAVORIS
+# =====================================
+
+class FavoriListCreateView(generics.ListCreateAPIView):
 
     serializer_class = FavoriSerializer
-    permission_classes = [
-        permissions.IsAuthenticated
-    ]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+
         return Favori.objects.filter(
             visiteur=self.request.user
         )
 
-    def perform_create(
-        self,
-        serializer
-    ):
+    def perform_create(self, serializer):
+
         serializer.save(
             visiteur=self.request.user
         )
 
 
-class FavoriDeleteView(
-    generics.DestroyAPIView
-):
+class FavoriDeleteView(generics.DestroyAPIView):
 
     serializer_class = FavoriSerializer
-    permission_classes = [
-        permissions.IsAuthenticated
-    ]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+
         return Favori.objects.filter(
             visiteur=self.request.user
-        )      
+        )
+
+
+# =====================================
+# AVIS
+# =====================================
+
 class AvisLogementListView(generics.ListAPIView):
+
     serializer_class = AvisSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+
         logement_id = self.kwargs['logement_id']
 
         return Avis.objects.filter(
@@ -222,10 +278,12 @@ class AvisLogementListView(generics.ListAPIView):
 
 
 class AvisReservationCreateView(generics.CreateAPIView):
+
     serializer_class = AvisSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):
+
         if self.request.user.role != 'visiteur':
             raise PermissionDenied(
                 "Seul un visiteur peut publier un avis."
@@ -243,4 +301,6 @@ class AvisReservationCreateView(generics.CreateAPIView):
                 "Vous avez déjà publié un avis pour cette réservation."
             )
 
-        serializer.save(reservation=reservation)
+        serializer.save(
+            reservation=reservation
+        )
