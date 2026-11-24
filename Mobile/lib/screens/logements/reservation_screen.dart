@@ -131,16 +131,33 @@ class _ReservationScreenState extends State<ReservationScreen> {
       );
 
       Navigator.pop(context, true);
-    } catch (e) {
-      if (!mounted) return;
+  } catch (e) {
+  if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur : $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
+  final erreur = e.toString().toLowerCase();
+
+  String message;
+
+  if (erreur.contains('déjà réservé') ||
+      erreur.contains('deja reserve')) {
+    message =
+        'Ce logement n’est pas disponible pour ces dates. '
+        'Veuillez choisir une autre période.';
+  } else {
+    message =
+        'Une erreur est survenue lors de la réservation. '
+        'Veuillez réessayer.';
+  }
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(
+  e.toString().replaceFirst('Exception: ', ''),
+),
+      backgroundColor: Colors.red,
+    ),
+  );
+}finally {
       if (mounted) {
         setState(() {
           isLoading = false;

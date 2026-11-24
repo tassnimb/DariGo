@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import '../../models/logement.dart';
 import '../../services/logement_service.dart';
+import '../../services/avis_service.dart';
 import 'modifier_logement_screen.dart';
 import 'reservation_screen.dart';
 
@@ -23,8 +24,15 @@ class LogementDetailScreen extends StatefulWidget {
 class _LogementDetailScreenState
     extends State<LogementDetailScreen> {
   bool isDeleting = false;
+  late Future<List<Map<String, dynamic>>> avisFuture;
 
   static const violet = Color(0xFF6C4AB6);
+
+  @override
+  void initState() {
+    super.initState();
+    avisFuture = AvisService.getAvis(widget.logement.id);
+  }
 
   Future<void> modifierLogement() async {
     final result = await Navigator.push<bool>(
@@ -64,9 +72,7 @@ class _LogementDetailScreenState
         ),
         actions: [
           TextButton(
-            onPressed: () {
-              Navigator.pop(dialogContext, false);
-            },
+            onPressed: () => Navigator.pop(dialogContext, false),
             child: const Text('Annuler'),
           ),
           ElevatedButton(
@@ -74,9 +80,7 @@ class _LogementDetailScreenState
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
             ),
-            onPressed: () {
-              Navigator.pop(dialogContext, true);
-            },
+            onPressed: () => Navigator.pop(dialogContext, true),
             child: const Text('Supprimer'),
           ),
         ],
@@ -119,6 +123,131 @@ class _LogementDetailScreenState
         });
       }
     }
+  }
+
+  Widget construireEtoiles(double note) {
+    return Row(
+      children: List.generate(5, (index) {
+        return Icon(
+          index < note.round()
+              ? Icons.star
+              : Icons.star_border,
+          color: Colors.amber,
+          size: 21,
+        );
+      }),
+    );
+  }
+
+  Widget afficherAvis() {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: avisFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return const Text(
+            'Impossible de charger les avis.',
+            style: TextStyle(color: Colors.red),
+          );
+        }
+
+        final avis = snapshot.data ?? [];
+
+        if (avis.isEmpty) {
+          return const Text(
+            'Aucun avis pour le moment.',
+            style: TextStyle(color: Colors.grey),
+          );
+        }
+
+        final total = avis.fold<double>(
+          0,
+          (sum, item) =>
+              sum + (item['note'] as num).toDouble(),
+        );
+
+        final moyenne = total / avis.length;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(15),
+              decoration: BoxDecoration(
+                color: violet.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                children: [
+                  Text(
+                    moyenne.toStringAsFixed(1),
+                    style: const TextStyle(
+                      fontSize: 30,
+                      fontWeight: FontWeight.bold,
+                      color: violet,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        construireEtoiles(moyenne),
+                        Text(
+                          '${avis.length} avis',
+                          style: const TextStyle(
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 15),
+
+            ...avis.map((item) {
+              final note = (item['note'] as num).toDouble();
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item['visiteur_username'] ?? 'Visiteur',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      construireEtoiles(note),
+                      const SizedBox(height: 8),
+                      Text(
+                        (item['commentaire'] ?? '').toString().isEmpty
+                            ? 'Aucun commentaire.'
+                            : item['commentaire'].toString(),
+                        style: const TextStyle(fontSize: 15),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -218,9 +347,22 @@ class _LogementDetailScreenState
               ),
             ),
 
+            const SizedBox(height: 28),
+
+            const Text(
+              'Avis des visiteurs',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            afficherAvis(),
+
             if (!widget.isProprietaire) ...[
               const SizedBox(height: 30),
-
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
@@ -238,7 +380,6 @@ class _LogementDetailScreenState
 
             if (widget.isProprietaire) ...[
               const SizedBox(height: 30),
-
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(

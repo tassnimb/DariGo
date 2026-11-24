@@ -22,6 +22,55 @@ class ReservationService {
     };
   }
 
+  // EXTRAIRE UN MESSAGE CLAIR DE DJANGO
+  static String _messageErreur(http.Response response) {
+    try {
+      final data = jsonDecode(response.body);
+
+      if (data is Map) {
+        final messages = <String>[];
+
+        data.forEach((key, value) {
+          if (value is List) {
+            messages.addAll(value.map((e) => e.toString()));
+          } else if (value is String) {
+            messages.add(value);
+          }
+        });
+
+        if (messages.isNotEmpty) {
+          final texte = messages.join(' ').toLowerCase();
+
+          if (texte.contains('disponible') ||
+              texte.contains('chevauche') ||
+              texte.contains('réservation existe') ||
+              texte.contains('reservation existe')) {
+            return "Ce logement n'est pas disponible pour ces dates. "
+                "Veuillez choisir une autre période.";
+          }
+
+          return messages.join('\n');
+        }
+      }
+    } catch (_) {
+      // La réponse n'est pas du JSON.
+    }
+
+    if (response.statusCode == 400) {
+      return "Les informations de réservation sont invalides.";
+    }
+
+    if (response.statusCode == 401) {
+      return "Votre session a expiré. Veuillez vous reconnecter.";
+    }
+
+    if (response.statusCode == 403) {
+      return "Vous n'avez pas l'autorisation d'effectuer cette action.";
+    }
+
+    return "Une erreur est survenue. Veuillez réessayer.";
+  }
+
   // AFFICHER LES RESERVATIONS
   static Future<List<Map<String, dynamic>>> getReservations() async {
     final response = await http.get(
@@ -37,9 +86,7 @@ class ReservationService {
           .toList();
     }
 
-    throw Exception(
-      "Erreur ${response.statusCode} : ${response.body}",
-    );
+    throw Exception(_messageErreur(response));
   }
 
   // AJOUTER UNE RESERVATION
@@ -70,9 +117,7 @@ class ReservationService {
       );
     }
 
-    throw Exception(
-      "Erreur ${response.statusCode} : ${response.body}",
-    );
+    throw Exception(_messageErreur(response));
   }
 
   // ACCEPTER OU REFUSER UNE RESERVATION
@@ -92,8 +137,6 @@ class ReservationService {
       return true;
     }
 
-    throw Exception(
-      "Erreur ${response.statusCode} : ${response.body}",
-    );
+    throw Exception(_messageErreur(response));
   }
 }

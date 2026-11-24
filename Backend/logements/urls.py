@@ -8,6 +8,8 @@ from .views import (
     ReservationDetailView,
     FavoriListCreateView,
     FavoriDeleteView,
+    AvisLogementListView,
+AvisReservationCreateView,
 )
 
 urlpatterns = [
@@ -44,5 +46,17 @@ urlpatterns = [
 path(
     'favoris/<int:pk>/',
     FavoriDeleteView.as_view()
+),
+# AVIS
+path(
+    'logements/<int:logement_id>/avis/',
+    AvisLogementListView.as_view(),
+    name='avis-logement-list',
+),
+
+path(
+    'reservations/<int:reservation_id>/avis/',
+    AvisReservationCreateView.as_view(),
+    name='avis-reservation-create',
 ),
 ]

@@ -8,12 +8,15 @@ from .models import (
     Logement,
     Reservation,
     Favori,
+    Avis,
 )
+from django.shortcuts import get_object_or_404
 from .serializers import (
     LogementSerializer,
     ReservationSerializer,
     ReservationStatutSerializer,
     FavoriSerializer,
+    AvisSerializer,
 )
 
 
@@ -203,3 +206,41 @@ class FavoriDeleteView(
         return Favori.objects.filter(
             visiteur=self.request.user
         )      
+class AvisLogementListView(generics.ListAPIView):
+    serializer_class = AvisSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        logement_id = self.kwargs['logement_id']
+
+        return Avis.objects.filter(
+            reservation__logement_id=logement_id
+        ).select_related(
+            'reservation__visiteur',
+            'reservation__logement'
+        )
+
+
+class AvisReservationCreateView(generics.CreateAPIView):
+    serializer_class = AvisSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        if self.request.user.role != 'visiteur':
+            raise PermissionDenied(
+                "Seul un visiteur peut publier un avis."
+            )
+
+        reservation = get_object_or_404(
+            Reservation,
+            pk=self.kwargs['reservation_id'],
+            visiteur=self.request.user,
+            statut='acceptee',
+        )
+
+        if Avis.objects.filter(reservation=reservation).exists():
+            raise ValidationError(
+                "Vous avez déjà publié un avis pour cette réservation."
+            )
+
+        serializer.save(reservation=reservation)

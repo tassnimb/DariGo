@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/reservation_service.dart';
-
+import '../../services/avis_service.dart';
 class MesReservationsScreen extends StatefulWidget {
   const MesReservationsScreen({super.key});
 
@@ -193,6 +193,24 @@ class _MesReservationsScreenState
 
             const SizedBox(height: 15),
 
+if (statut == 'acceptee')
+  SizedBox(
+    width: double.infinity,
+    child: ElevatedButton.icon(
+      onPressed: () => donnerAvis(reservation),
+      icon: const Icon(Icons.star),
+      label: const Text('Donner mon avis'),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.amber,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.all(14),
+      ),
+    ),
+  ),
+
+if (statut == 'acceptee')
+  const SizedBox(height: 10),
+
             if (statut == 'en_attente')
               SizedBox(
                 width: double.infinity,
@@ -293,6 +311,122 @@ class _MesReservationsScreenState
       ),
     );
   }
+
+  Future<void> donnerAvis(
+    Map<String, dynamic> reservation,
+  ) async {
+    int note = 5;
+    final commentaireController = TextEditingController();
+
+    final confirmer = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Donner votre avis'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Quelle note donnez-vous ?'),
+                    const SizedBox(height: 12),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(5, (index) {
+                        return IconButton(
+                          onPressed: () {
+                            setDialogState(() {
+                              note = index + 1;
+                            });
+                          },
+                          icon: Icon(
+                            index < note
+                                ? Icons.star
+                                : Icons.star_border,
+                            color: Colors.amber,
+                            size: 32,
+                          ),
+                        );
+                      }),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    TextField(
+                      controller: commentaireController,
+                      maxLines: 4,
+                      maxLength: 500,
+                      decoration: const InputDecoration(
+                        labelText: 'Votre commentaire',
+                        hintText: 'Ex : Très bon logement...',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(dialogContext, false);
+                  },
+                  child: const Text('Annuler'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: violet,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () {
+                    Navigator.pop(dialogContext, true);
+                  },
+                  child: const Text('Publier'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (confirmer != true || !mounted) {
+      commentaireController.dispose();
+      return;
+    }
+
+    try {
+      await AvisService.ajouterAvis(
+        reservationId: reservation['id'] as int,
+        note: note,
+        commentaire: commentaireController.text.trim(),
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Votre avis a été publié !'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      actualiser();
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Impossible de publier l’avis : $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      commentaireController.dispose();
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {

@@ -6,6 +6,7 @@ from .models import (
     Logement,
     Reservation,
     Favori,
+    Avis,
 )
 from django.db import transaction
 from rest_framework.exceptions import ValidationError
@@ -133,3 +134,43 @@ class FavoriSerializer(serializers.ModelSerializer):
             'logement_titre',
             'date_creation'
         ]
+
+
+class AvisSerializer(serializers.ModelSerializer):
+
+    visiteur_username = serializers.CharField(
+        source='reservation.visiteur.username',
+        read_only=True
+    )
+
+    logement_titre = serializers.CharField(
+        source='reservation.logement.titre',
+        read_only=True
+    )
+
+    class Meta:
+        model = Avis
+        fields = [
+            'id',
+            'reservation',
+            'note',
+            'commentaire',
+            'date_creation',
+            'visiteur_username',
+            'logement_titre',
+        ]
+
+        read_only_fields = [
+            'id',
+            'reservation',
+            'date_creation',
+            'visiteur_username',
+            'logement_titre',
+        ]
+
+    def validate_note(self, value):
+        if value < 1 or value > 5:
+            raise serializers.ValidationError(
+                "La note doit être comprise entre 1 et 5."
+            )
+        return value
