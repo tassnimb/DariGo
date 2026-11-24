@@ -2,12 +2,64 @@ from django.db import models
 from django.conf import settings
 
 
+
 class Logement(models.Model):
+
+    TYPE_LOGEMENT_CHOICES = [
+        ('maison', 'Maison'),
+        ('appartement', 'Appartement'),
+        ('grange', 'Grange'),
+        ('chambre_hotes', 'Chambre d’hôtes'),
+        ('bateau', 'Bateau'),
+        ('cabane', 'Cabane'),
+        ('camping_car', 'Camping-car'),
+        ('villa', 'Villa'),
+        ('chateau', 'Château'),
+        ('grotte', 'Grotte'),
+        ('autre', 'Autre'),
+    ]
+
+    TYPE_HEBERGEMENT_CHOICES = [
+        ('entier', 'Logement entier'),
+        ('privee', 'Chambre privée'),
+        ('partagee', 'Chambre partagée'),
+    ]
+
+    # Informations principales
     titre = models.CharField(max_length=200)
     description = models.TextField()
     adresse = models.CharField(max_length=255)
     prix = models.DecimalField(max_digits=10, decimal_places=2)
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
 
+    # Type de logement
+    type_logement = models.CharField(
+        max_length=30,
+        choices=TYPE_LOGEMENT_CHOICES,
+        default='appartement'
+    )
+
+    # Type d'hébergement
+    type_hebergement = models.CharField(
+        max_length=20,
+        choices=TYPE_HEBERGEMENT_CHOICES,
+        default='entier'
+    )
+
+    # Adresse détaillée
+    pays = models.CharField(max_length=100, default='Tunisie')
+    ville = models.CharField(max_length=100, blank=True, default='')
+    gouvernorat = models.CharField(max_length=100, blank=True, default='')
+    code_postal = models.CharField(max_length=20, blank=True, default='')
+
+    # Capacité
+    nombre_voyageurs = models.PositiveIntegerField(default=1)
+    chambres = models.PositiveIntegerField(default=1)
+    lits = models.PositiveIntegerField(default=1)
+    salles_bain = models.PositiveIntegerField(default=1)
+
+    # Propriétaire
     proprietaire = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -18,6 +70,7 @@ class Logement(models.Model):
 
     def __str__(self):
         return self.titre
+
     
 class Reservation(models.Model):
 
