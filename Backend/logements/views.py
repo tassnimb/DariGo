@@ -2,12 +2,18 @@
 from rest_framework import generics, permissions
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
-
-from .models import Logement, Reservation
+from .models import Favori
+from .serializers import FavoriSerializer
+from .models import (
+    Logement,
+    Reservation,
+    Favori,
+)
 from .serializers import (
     LogementSerializer,
     ReservationSerializer,
     ReservationStatutSerializer,
+    FavoriSerializer,
 )
 
 
@@ -16,10 +22,20 @@ class LogementListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+
+        user = self.request.user
+
+        if user.role == 'proprietaire':
+            return Logement.objects.filter(
+                proprietaire=user
+            )
+
         return Logement.objects.all()
 
     def perform_create(self, serializer):
-        serializer.save(proprietaire=self.request.user)
+        serializer.save(
+            proprietaire=self.request.user
+        )
 
 
 class LogementRetrieveUpdateDeleteView(
@@ -65,7 +81,9 @@ class ReservationDetailView(generics.RetrieveUpdateAPIView):
         user = self.request.user
 
         if user.role == 'visiteur':
-            return Reservation.objects.filter(visiteur=user)
+            return Reservation.objects.filter(
+                visiteur=user
+            )
 
         if user.role == 'proprietaire':
             return Reservation.objects.filter(
@@ -81,12 +99,42 @@ class ReservationDetailView(generics.RetrieveUpdateAPIView):
         return ReservationSerializer
 
     def update(self, request, *args, **kwargs):
-        if request.user.role != 'proprietaire':
-            raise PermissionDenied(
-                "Seul le propriétaire peut répondre à cette réservation."
+
+        reservation = self.get_object()
+
+        # Propriétaire : accepte ou refuse
+        if request.user.role == 'proprietaire':
+
+            if request.data.get('statut') not in [
+                'acceptee',
+                'refusee',
+            ]:
+                raise PermissionDenied(
+                    "Statut non autorisé."
+                )
+
+            return super().update(
+                request,
+                *args,
+                **kwargs,
             )
 
-        return super().update(request, *args, **kwargs)
+        # Visiteur : annule uniquement sa réservation
+        if request.user.role == 'visiteur':
+
+            if (
+                reservation.visiteur == request.user
+                and request.data.get('statut') == 'annulee'
+            ):
+                return super().update(
+                    request,
+                    *args,
+                    **kwargs,
+                )
+
+        raise PermissionDenied(
+            "Action non autorisée."
+        )
 
     @transaction.atomic
     def perform_update(self, serializer):
@@ -98,6 +146,7 @@ class ReservationDetailView(generics.RetrieveUpdateAPIView):
         )
 
         if nouveau_statut == 'acceptee':
+
             Logement.objects.select_for_update().get(
                 pk=reservation.logement_id
             )
@@ -117,3 +166,40 @@ class ReservationDetailView(generics.RetrieveUpdateAPIView):
                 )
 
         serializer.save()
+
+class FavoriListCreateView(
+    generics.ListCreateAPIView
+):
+
+    serializer_class = FavoriSerializer
+    permission_classes = [
+        permissions.IsAuthenticated
+    ]
+
+    def get_queryset(self):
+        return Favori.objects.filter(
+            visiteur=self.request.user
+        )
+
+    def perform_create(
+        self,
+        serializer
+    ):
+        serializer.save(
+            visiteur=self.request.user
+        )
+
+
+class FavoriDeleteView(
+    generics.DestroyAPIView
+):
+
+    serializer_class = FavoriSerializer
+    permission_classes = [
+        permissions.IsAuthenticated
+    ]
+
+    def get_queryset(self):
+        return Favori.objects.filter(
+            visiteur=self.request.user
+        )      

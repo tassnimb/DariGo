@@ -2,7 +2,11 @@ from rest_framework import serializers
 from .models import Logement
 from rest_framework import serializers
 from django.utils import timezone
-from .models import Logement, Reservation
+from .models import (
+    Logement,
+    Reservation,
+    Favori,
+)
 from django.db import transaction
 from rest_framework.exceptions import ValidationError
 class LogementSerializer(serializers.ModelSerializer):
@@ -107,9 +111,25 @@ class ReservationStatutSerializer(serializers.ModelSerializer):
         fields = ['statut']
 
     def validate_statut(self, value):
-        if value not in ['acceptee', 'refusee']:
+        if value not in ['acceptee', 'refusee','annulee']:
             raise serializers.ValidationError(
                 "Statut non autorisé."
             )
 
         return value
+    
+class FavoriSerializer(serializers.ModelSerializer):
+
+    logement_titre = serializers.CharField(
+        source='logement.titre',
+        read_only=True
+    )
+
+    class Meta:
+        model = Favori
+        fields = [
+            'id',
+            'logement',
+            'logement_titre',
+            'date_creation'
+        ]

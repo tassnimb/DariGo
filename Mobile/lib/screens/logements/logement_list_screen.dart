@@ -1,4 +1,4 @@
-
+import '../favoris/mes_favoris_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'mes_reservations_screen.dart';
@@ -125,48 +125,78 @@ class _LogementListScreenState extends State<LogementListScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF7F6FA),
 
-      appBar: AppBar(
-        backgroundColor: violet,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: Text(
-          isProprietaire ? 'Mes logements' : 'Découvrir les logements',
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-actions: [
-  if (!isProprietaire)
-    IconButton(
-      tooltip: 'Mes réservations',
-      icon: const Icon(Icons.calendar_month),
-      onPressed: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const MesReservationsScreen(),
-          ),
-        );
-      },
+     appBar: AppBar(
+  backgroundColor: violet,
+  foregroundColor: Colors.white,
+  elevation: 0,
+  title: Text(
+    isProprietaire
+        ? 'Mes logements'
+        : 'Découvrir les logements',
+    style: const TextStyle(
+      fontWeight: FontWeight.bold,
     ),
-if (isProprietaire)
-  IconButton(
-    tooltip: 'Gérer les réservations',
-    icon: const Icon(Icons.event_note),
-    onPressed: () {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const GestionReservationsScreen(),
+  ),
+
+  actions: [
+
+    if (!isProprietaire)
+      IconButton(
+        tooltip: 'Mes réservations',
+        icon: const Icon(
+          Icons.calendar_month,
         ),
-      );
-    },
-  ),
-  IconButton(
-    tooltip: 'Déconnexion',
-    onPressed: retournerLogin,
-    icon: const Icon(Icons.logout),
-  ),
-],
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) =>
+                  const MesReservationsScreen(),
+            ),
+          );
+        },
       ),
+
+    if (!isProprietaire)
+      IconButton(
+        tooltip: 'Mes favoris',
+        icon: const Icon(
+          Icons.favorite,
+          color: Colors.red,
+        ),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) =>
+                  const MesFavorisScreen(),
+            ),
+          );
+        },
+      ),
+
+    if (isProprietaire)
+      IconButton(
+        tooltip: 'Gérer les réservations',
+        icon: const Icon(Icons.event_note),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) =>
+                  const GestionReservationsScreen(),
+            ),
+          );
+        },
+      ),
+
+    IconButton(
+      tooltip: 'Déconnexion',
+      onPressed: retournerLogin,
+      icon: const Icon(Icons.logout),
+    ),
+  ],
+),
 
       floatingActionButton: isProprietaire
           ? FloatingActionButton.extended(

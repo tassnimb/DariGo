@@ -25,6 +25,7 @@ class Reservation(models.Model):
         ('en_attente', 'En attente'),
         ('acceptee', 'Acceptée'),
         ('refusee', 'Refusée'),
+        ('annulee','Annulée')
     ]
 
     logement = models.ForeignKey(
@@ -57,3 +58,29 @@ class Reservation(models.Model):
 
     def __str__(self):
         return f"Réservation {self.id} - {self.logement.titre}"
+class Favori(models.Model):
+
+    visiteur = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='favoris'
+    )
+
+    logement = models.ForeignKey(
+        Logement,
+        on_delete=models.CASCADE,
+        related_name='favoris'
+    )
+
+    date_creation = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    class Meta:
+        unique_together = (
+            'visiteur',
+            'logement'
+        )
+
+    def __str__(self):
+        return f"{self.visiteur} - {self.logement}"

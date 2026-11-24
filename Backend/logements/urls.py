@@ -6,6 +6,8 @@ from .views import (
     LogementRetrieveUpdateDeleteView,
     ReservationListCreateView,
     ReservationDetailView,
+    FavoriListCreateView,
+    FavoriDeleteView,
 )
 
 urlpatterns = [
@@ -34,4 +36,13 @@ urlpatterns = [
         ReservationDetailView.as_view(),
         name='reservation-detail',
     ),
+    path(
+    'favoris/',
+    FavoriListCreateView.as_view()
+),
+
+path(
+    'favoris/<int:pk>/',
+    FavoriDeleteView.as_view()
+),
 ]
