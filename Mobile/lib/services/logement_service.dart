@@ -1,14 +1,13 @@
 
 import 'dart:convert';
-
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/api_config.dart';
 import '../models/logement.dart';
 
 class LogementService {
-  static const String baseUrl =
-      "http://127.0.0.1:8000/api/logements/";
+  static String get baseUrl => '${ApiConfig.apiUrl}/logements/';
 
   static Future<Map<String, String>> _headers() async {
     final prefs = await SharedPreferences.getInstance();
@@ -34,9 +33,7 @@ class LogementService {
     if (response.statusCode == 200) {
       final List data = jsonDecode(response.body);
 
-      return data
-          .map((e) => Logement.fromJson(e))
-          .toList();
+      return data.map((e) => Logement.fromJson(e)).toList();
     }
 
     throw Exception(

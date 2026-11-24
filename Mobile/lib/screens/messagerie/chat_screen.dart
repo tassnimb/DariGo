@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-
+import '../../config/api_config.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -23,7 +23,7 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  static const String baseUrl = 'http://127.0.0.1:8000';
+static String get baseUrl => ApiConfig.baseUrl;
 
   final TextEditingController messageController =
       TextEditingController();
@@ -91,7 +91,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> chargerMessages() async {
     final response = await http.get(
       Uri.parse(
-        '$baseUrl/api/messagerie/conversations/${widget.conversationId}/messages/',
+'$baseUrl/api/messagerie/conversations/${widget.conversationId}/messages/',
       ),
       headers: {
         'Authorization': 'Bearer $token',
@@ -130,16 +130,18 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> connecterWebSocket() async {
-    final uri = Uri(
-      scheme: 'ws',
-      host: '127.0.0.1',
-      port: 8000,
-      path:
-          '/ws/messagerie/conversations/${widget.conversationId}/',
-      queryParameters: {
-        'token': token!,
-      },
-    );
+ final baseUri = Uri.parse(baseUrl);
+
+final uri = Uri(
+  scheme: baseUri.scheme == 'https' ? 'wss' : 'ws',
+  host: baseUri.host,
+  port: baseUri.port,
+  path:
+      '/ws/messagerie/conversations/${widget.conversationId}/',
+  queryParameters: {
+    'token': token!,
+  },
+);
 
     channel = WebSocketChannel.connect(uri);
 

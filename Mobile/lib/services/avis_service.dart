@@ -1,15 +1,23 @@
 
 import 'dart:convert';
+
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/api_config.dart';
+
 class AvisService {
-  static const String baseUrl =
-      "http://127.0.0.1:8000/api";
+  static String get baseUrl => ApiConfig.apiUrl;
 
   static Future<Map<String, String>> _headers() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString("access");
+
+    if (token == null || token.isEmpty) {
+      throw Exception(
+        "Session expirée. Veuillez vous reconnecter.",
+      );
+    }
 
     return {
       "Authorization": "Bearer $token",
@@ -17,7 +25,7 @@ class AvisService {
     };
   }
 
-  // Récupérer les avis d'un logement
+  // RÉCUPÉRER LES AVIS D'UN LOGEMENT
   static Future<List<Map<String, dynamic>>> getAvis(
     int logementId,
   ) async {
@@ -27,7 +35,15 @@ class AvisService {
     );
 
     if (response.statusCode == 200) {
-      final List data = jsonDecode(response.body);
+      final decoded = jsonDecode(response.body);
+
+      final List data = decoded is List
+          ? decoded
+          : decoded is Map && decoded['results'] is List
+              ? decoded['results']
+              : throw Exception(
+                  "Format de réponse inattendu.",
+                );
 
       return data
           .map((e) => Map<String, dynamic>.from(e))
@@ -35,11 +51,12 @@ class AvisService {
     }
 
     throw Exception(
-      "Impossible de récupérer les avis (${response.statusCode})",
+      "Impossible de récupérer les avis "
+      "(${response.statusCode})",
     );
   }
 
-  // Publier un avis pour une réservation
+  // PUBLIER UN AVIS POUR UNE RÉSERVATION
   static Future<bool> ajouterAvis({
     required int reservationId,
     required int note,
@@ -64,5 +81,4 @@ class AvisService {
       "Erreur ${response.statusCode} : ${response.body}",
     );
   }
-
 }

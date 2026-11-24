@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../config/api_config.dart';
 import '../../services/messagerie_service.dart';
 import 'chat_screen.dart';
 
@@ -26,7 +27,10 @@ class _ConversationsScreenState
     loadConversations();
   }
 
+  // CHARGER LES CONVERSATIONS
   Future<void> loadConversations() async {
+    if (!mounted) return;
+
     setState(() {
       isLoading = true;
       errorMessage = null;
@@ -55,6 +59,7 @@ class _ConversationsScreenState
     }
   }
 
+  // NOM DE L'INTERLOCUTEUR
   String getOtherUsername(
     Map<String, dynamic> conversation,
   ) {
@@ -68,39 +73,45 @@ class _ConversationsScreenState
     return visitor['username'] ?? 'Visiteur';
   }
 
-  // Récupérer la photo de l'interlocuteur
-String? getOtherProfilePhoto(
-  Map<String, dynamic> conversation,
-) {
-  final visitor = conversation['visiteur'] ?? {};
-  final owner = conversation['proprietaire'] ?? {};
+  // PHOTO DE PROFIL DE L'INTERLOCUTEUR
+  String? getOtherProfilePhoto(
+    Map<String, dynamic> conversation,
+  ) {
+    final visitor = conversation['visiteur'] ?? {};
+    final owner = conversation['proprietaire'] ?? {};
 
-  final otherUser = role == 'visiteur' ? owner : visitor;
+    final otherUser =
+        role == 'visiteur' ? owner : visitor;
 
-  final photo = otherUser['profile_photo'];
+    final photo = otherUser['profile_photo'];
 
-  // Photo par défaut si l'utilisateur n'a pas de photo
-  if (photo == null || photo.toString().trim().isEmpty) {
-    return '${MessagerieService.baseUrl}/media/profiles/photo.png';
+    // Photo par défaut
+    if (photo == null || photo.toString().trim().isEmpty) {
+      return '${ApiConfig.baseUrl}/media/profiles/photo.png';
+    }
+
+    final photoPath = photo.toString();
+    final photoUri = Uri.tryParse(photoPath);
+
+    // URL complète renvoyée par Django
+    if (photoUri != null && photoUri.hasScheme) {
+      if (photoUri.host == '127.0.0.1' ||
+          photoUri.host == 'localhost') {
+        return Uri.parse(ApiConfig.baseUrl)
+            .resolve(photoUri.path)
+            .toString();
+      }
+
+      return photoPath;
+    }
+
+    // Chemin relatif
+    return Uri.parse(ApiConfig.baseUrl)
+        .resolve(photoPath)
+        .toString();
   }
 
-  final photoPath = photo.toString();
-
-  // Si Django renvoie déjà une URL complète
-  final photoUri = Uri.tryParse(photoPath);
-
-  if (photoUri != null && photoUri.hasScheme) {
-    return photoPath;
-  }
-
-  // Si Django renvoie un chemin relatif
-  return Uri.parse(
-    MessagerieService.baseUrl,
-  ).resolve(photoPath).toString();
-}
-
-
-  // Avatar avec photo ou icône par défaut
+  // AVATAR AVEC PHOTO OU ICÔNE PAR DÉFAUT
   Widget construireAvatar(String? photoUrl) {
     return CircleAvatar(
       radius: 27,
@@ -137,6 +148,7 @@ String? getOtherProfilePhoto(
     );
   }
 
+  // DERNIER MESSAGE
   String getLastMessage(
     Map<String, dynamic> conversation,
   ) {
@@ -149,11 +161,14 @@ String? getOtherProfilePhoto(
     return message['contenu'] ?? '';
   }
 
+  // FORMATER LA DATE
   String formatDate(dynamic date) {
     if (date == null) return '';
 
     try {
-      final parsedDate = DateTime.parse(date).toLocal();
+      final parsedDate =
+          DateTime.parse(date.toString()).toLocal();
+
       final now = DateTime.now();
 
       if (parsedDate.year == now.year &&
@@ -177,15 +192,19 @@ String? getOtherProfilePhoto(
       appBar: AppBar(
         title: const Text(
           'Mes conversations',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+          ),
         ),
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
       ),
+
       body: isLoading
           ? const Center(
               child: CircularProgressIndicator(),
             )
+
           : errorMessage != null
               ? Center(
                   child: Column(
@@ -200,6 +219,7 @@ String? getOtherProfilePhoto(
                     ],
                   ),
                 )
+
               : conversations.isEmpty
                   ? const Center(
                       child: Text(
@@ -207,11 +227,13 @@ String? getOtherProfilePhoto(
                         style: TextStyle(fontSize: 16),
                       ),
                     )
+
                   : RefreshIndicator(
                       onRefresh: loadConversations,
                       child: ListView.builder(
                         padding: const EdgeInsets.all(12),
                         itemCount: conversations.length,
+
                         itemBuilder: (context, index) {
                           final conversation =
                               Map<String, dynamic>.from(
@@ -243,15 +265,17 @@ String? getOtherProfilePhoto(
                               bottom: 12,
                             ),
                             elevation: 2,
+
                             child: ListTile(
                               contentPadding:
                                   const EdgeInsets.all(12),
 
-                              // Photo de l'interlocuteur
+                              // PHOTO DE PROFIL
                               leading: construireAvatar(
                                 photoUrl,
                               ),
 
+                              // NOM
                               title: Text(
                                 username,
                                 style: const TextStyle(
@@ -259,13 +283,17 @@ String? getOtherProfilePhoto(
                                 ),
                               ),
 
+                              // INFORMATIONS
                               subtitle: Column(
                                 crossAxisAlignment:
                                     CrossAxisAlignment.start,
                                 children: [
                                   const SizedBox(height: 4),
+
                                   Text('Logement : $logement'),
+
                                   const SizedBox(height: 4),
+
                                   Text(
                                     lastMessage,
                                     maxLines: 1,
@@ -275,6 +303,7 @@ String? getOtherProfilePhoto(
                                 ],
                               ),
 
+                              // DATE ET FLÈCHE
                               trailing: Column(
                                 mainAxisAlignment:
                                     MainAxisAlignment.center,
@@ -286,7 +315,9 @@ String? getOtherProfilePhoto(
                                       color: Colors.grey,
                                     ),
                                   ),
+
                                   const SizedBox(height: 6),
+
                                   const Icon(
                                     Icons.arrow_forward_ios,
                                     size: 16,
@@ -294,6 +325,7 @@ String? getOtherProfilePhoto(
                                 ],
                               ),
 
+                              // OUVRIR LA CONVERSATION
                               onTap: () {
                                 Navigator.push(
                                   context,

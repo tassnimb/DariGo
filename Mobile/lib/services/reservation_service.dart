@@ -4,16 +4,20 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/api_config.dart';
+
 class ReservationService {
-  static const String baseUrl =
-      "http://127.0.0.1:8000/api/reservations/";
+  static String get baseUrl =>
+      '${ApiConfig.apiUrl}/reservations/';
 
   static Future<Map<String, String>> _headers() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString("access");
 
     if (token == null || token.isEmpty) {
-      throw Exception("Session expirée. Veuillez vous reconnecter.");
+      throw Exception(
+        "Session expirée. Veuillez vous reconnecter.",
+      );
     }
 
     return {
@@ -32,7 +36,9 @@ class ReservationService {
 
         data.forEach((key, value) {
           if (value is List) {
-            messages.addAll(value.map((e) => e.toString()));
+            messages.addAll(
+              value.map((e) => e.toString()),
+            );
           } else if (value is String) {
             messages.add(value);
           }
@@ -79,7 +85,15 @@ class ReservationService {
     );
 
     if (response.statusCode == 200) {
-      final List data = jsonDecode(response.body);
+      final decoded = jsonDecode(response.body);
+
+      final List data = decoded is List
+          ? decoded
+          : decoded is Map && decoded['results'] is List
+              ? decoded['results']
+              : throw Exception(
+                  'Format de réponse inattendu.',
+                );
 
       return data
           .map((e) => Map<String, dynamic>.from(e))

@@ -2,15 +2,12 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter/foundation.dart';
-class MessagerieService {
-static String get baseUrl {
-  if (defaultTargetPlatform == TargetPlatform.android) {
-    return 'http://10.0.2.2:8000';
-  }
+import '../config/api_config.dart';
 
-  return 'http://127.0.0.1:8000';
-}
+class MessagerieService {
+  static String get baseUrl => ApiConfig.baseUrl;
+
+  static String get apiUrl => ApiConfig.apiUrl;
 
   // Récupérer le token JWT
   static Future<String?> getToken() async {
@@ -27,7 +24,7 @@ static String get baseUrl {
     }
 
     final response = await http.get(
-      Uri.parse('$baseUrl/api/messagerie/conversations/'),
+      Uri.parse('$apiUrl/messagerie/conversations/'),
       headers: {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
@@ -66,7 +63,7 @@ static String get baseUrl {
     }
 
     final response = await http.post(
-      Uri.parse('$baseUrl/api/messagerie/conversations/'),
+      Uri.parse('$apiUrl/messagerie/conversations/'),
       headers: {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
