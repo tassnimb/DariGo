@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 
 import '../../services/favori_service.dart';
@@ -35,96 +36,25 @@ class _MesFavorisScreenState
     await favorisFuture;
   }
 
-  Future<void> supprimerFavori(
-    int favoriId,
-  ) async {
-
-    final confirmer = await showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text(
-          "Retirer des favoris",
-        ),
-        content: const Text(
-          "Voulez-vous retirer ce logement de vos favoris ?",
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context, false);
-            },
-            child: const Text("Non"),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context, true);
-            },
-            child: const Text("Oui"),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmer != true) {
-      return;
-    }
-
-    bool success =
-        await FavoriService.deleteFavori(
-      favoriId,
-    );
-
-    if (!mounted) return;
-
-    if (success) {
-
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
-        const SnackBar(
-          content: Text(
-            "Favori supprimé 💔",
-          ),
-        ),
-      );
-
-      actualiser();
-
-    } else {
-
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
-        const SnackBar(
-          content: Text(
-            "Erreur lors de la suppression",
-          ),
-        ),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(
-        0xFFF7F6FA,
-      ),
+      backgroundColor: const Color(0xFFF7F6FA),
+
       appBar: AppBar(
-        title: const Text(
-          "Mes favoris",
-        ),
+        title: const Text("Mes favoris"),
         backgroundColor: violet,
         foregroundColor: Colors.white,
       ),
-      body: FutureBuilder<
-          List<Map<String, dynamic>>>(
+
+      body: FutureBuilder<List<Map<String, dynamic>>>(
         future: favorisFuture,
         builder: (context, snapshot) {
 
           if (snapshot.connectionState ==
               ConnectionState.waiting) {
             return const Center(
-              child:
-                  CircularProgressIndicator(),
+              child: CircularProgressIndicator(),
             );
           }
 
@@ -136,13 +66,13 @@ class _MesFavorisScreenState
             );
           }
 
-          final favoris =
-              snapshot.data ?? [];
+          final favoris = snapshot.data ?? [];
 
           if (favoris.isEmpty) {
             return const Center(
               child: Text(
                 "Aucun favori ❤️",
+                style: TextStyle(fontSize: 17),
               ),
             );
           }
@@ -150,46 +80,42 @@ class _MesFavorisScreenState
           return RefreshIndicator(
             onRefresh: actualiser,
             child: ListView.builder(
-              padding:
-                  const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
               itemCount: favoris.length,
-              itemBuilder: (
-                context,
-                index,
-              ) {
 
-                final favori =
-                    favoris[index];
+              itemBuilder: (context, index) {
+                final favori = favoris[index];
 
                 return Card(
-                  margin:
-                      const EdgeInsets.only(
+                  color: Colors.white,
+                  elevation: 2,
+                  margin: const EdgeInsets.only(
                     bottom: 15,
                   ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+
                   child: ListTile(
+                    contentPadding: const EdgeInsets.all(15),
+
                     leading: const Icon(
                       Icons.favorite,
                       color: Colors.red,
+                      size: 30,
                     ),
+
                     title: Text(
-                      favori[
-                              'logement_titre']
-                          ?.toString() ??
+                      favori['logement_titre']
+                              ?.toString() ??
                           '',
-                    ),
-                    subtitle: Text(
-                      "Ajouté aux favoris",
-                    ),
-                    trailing: IconButton(
-                      icon: const Icon(
-                        Icons.delete_outline,
-                        color: Colors.red,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
                       ),
-                      onPressed: () {
-                        supprimerFavori(
-                          favori['id'],
-                        );
-                      },
+                    ),
+
+                    subtitle: const Text(
+                      "Ajouté aux favoris",
                     ),
                   ),
                 );

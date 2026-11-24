@@ -1,13 +1,17 @@
-import '../favoris/mes_favoris_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../favoris/mes_favoris_screen.dart';
+import '../../services/favori_service.dart';
+import '../../services/logement_service.dart';
+import '../../models/logement.dart';
+
 import 'mes_reservations_screen.dart';
 import '../login_screen.dart';
 import 'ajouter_logement_screen.dart';
-import '../../models/logement.dart';
-import '../../services/logement_service.dart';
 import 'logement_detail_screen.dart';
 import 'gestion_reservations_screen.dart';
+
 class LogementListScreen extends StatefulWidget {
   const LogementListScreen({super.key});
 
@@ -27,6 +31,12 @@ class _LogementListScreenState extends State<LogementListScreen> {
   RangeValues? selectedRange;
   int ordrePrix = 0;
 
+  // logementId -> favoriId
+  final Map<int, int> favoris = {};
+
+  // Évite plusieurs clics pendant une opération.
+  final Set<int> favorisEnCours = {};
+
   bool get isProprietaire => role == 'proprietaire';
 
   @override
@@ -41,9 +51,123 @@ class _LogementListScreenState extends State<LogementListScreen> {
 
     if (!mounted) return;
 
+    final nouveauRole =
+        (prefs.getString('role') ?? '').toLowerCase();
+
     setState(() {
-      role = (prefs.getString('role') ?? '').toLowerCase();
+      role = nouveauRole;
     });
+
+    if (nouveauRole != 'proprietaire') {
+      await chargerFavoris();
+    }
+  }
+
+  // Récupérer les favoris déjà enregistrés.
+  Future<void> chargerFavoris() async {
+    try {
+      final liste = await FavoriService.getFavoris();
+
+      final Map<int, int> nouveauxFavoris = {};
+
+      for (final favori in liste) {
+        final favoriId = favori['id'];
+        final logement = favori['logement'];
+
+        int? logementId;
+
+        if (logement is Map) {
+          logementId = logement['id'] is num
+              ? (logement['id'] as num).toInt()
+              : int.tryParse('${logement['id']}');
+        } else if (logement is num) {
+          logementId = logement.toInt();
+        } else {
+          logementId = int.tryParse('$logement');
+        }
+
+        final id = favoriId is num
+            ? favoriId.toInt()
+            : int.tryParse('$favoriId');
+
+        if (logementId != null && id != null) {
+          nouveauxFavoris[logementId] = id;
+        }
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        favoris
+          ..clear()
+          ..addAll(nouveauxFavoris);
+      });
+    } catch (e) {
+      debugPrint('Erreur chargement favoris : $e');
+    }
+  }
+
+  // Ajouter ou retirer un favori.
+  Future<void> toggleFavori(int logementId) async {
+    if (favorisEnCours.contains(logementId)) return;
+
+    setState(() {
+      favorisEnCours.add(logementId);
+    });
+
+    try {
+      if (favoris.containsKey(logementId)) {
+        final favoriId = favoris[logementId]!;
+
+        final succes =
+            await FavoriService.deleteFavori(favoriId);
+
+        if (succes) {
+          if (!mounted) return;
+
+          setState(() {
+            favoris.remove(logementId);
+          });
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Retiré des favoris'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      } else {
+        final succes =
+            await FavoriService.addFavori(logementId);
+
+        if (succes) {
+          await chargerFavoris();
+
+          if (!mounted) return;
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Ajouté aux favoris ❤️'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur lors de la modification du favori : $e'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          favorisEnCours.remove(logementId);
+        });
+      }
+    }
   }
 
   void rechargerLogements() {
@@ -125,78 +249,75 @@ class _LogementListScreenState extends State<LogementListScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF7F6FA),
 
-     appBar: AppBar(
-  backgroundColor: violet,
-  foregroundColor: Colors.white,
-  elevation: 0,
-  title: Text(
-    isProprietaire
-        ? 'Mes logements'
-        : 'Découvrir les logements',
-    style: const TextStyle(
-      fontWeight: FontWeight.bold,
-    ),
-  ),
-
-  actions: [
-
-    if (!isProprietaire)
-      IconButton(
-        tooltip: 'Mes réservations',
-        icon: const Icon(
-          Icons.calendar_month,
+      appBar: AppBar(
+        backgroundColor: violet,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: Text(
+          isProprietaire
+              ? 'Mes logements'
+              : 'Découvrir les logements',
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+          ),
         ),
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) =>
-                  const MesReservationsScreen(),
+        actions: [
+          if (!isProprietaire)
+            IconButton(
+              tooltip: 'Mes réservations',
+              icon: const Icon(Icons.calendar_month),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const MesReservationsScreen(),
+                  ),
+                );
+              },
             ),
-          );
-        },
-      ),
 
-    if (!isProprietaire)
-      IconButton(
-        tooltip: 'Mes favoris',
-        icon: const Icon(
-          Icons.favorite,
-          color: Colors.red,
-        ),
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) =>
-                  const MesFavorisScreen(),
+          if (!isProprietaire)
+            IconButton(
+              tooltip: 'Mes favoris',
+              icon: const Icon(
+                Icons.favorite,
+                color: Colors.red,
+              ),
+              onPressed: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const MesFavorisScreen(),
+                  ),
+                );
+
+                if (!mounted) return;
+                await chargerFavoris();
+              },
             ),
-          );
-        },
-      ),
 
-    if (isProprietaire)
-      IconButton(
-        tooltip: 'Gérer les réservations',
-        icon: const Icon(Icons.event_note),
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) =>
-                  const GestionReservationsScreen(),
+          if (isProprietaire)
+            IconButton(
+              tooltip: 'Gérer les réservations',
+              icon: const Icon(Icons.event_note),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        const GestionReservationsScreen(),
+                  ),
+                );
+              },
             ),
-          );
-        },
-      ),
 
-    IconButton(
-      tooltip: 'Déconnexion',
-      onPressed: retournerLogin,
-      icon: const Icon(Icons.logout),
-    ),
-  ],
-),
+          IconButton(
+            tooltip: 'Déconnexion',
+            onPressed: retournerLogin,
+            icon: const Icon(Icons.logout),
+          ),
+        ],
+      ),
 
       floatingActionButton: isProprietaire
           ? FloatingActionButton.extended(
@@ -261,15 +382,14 @@ class _LogementListScreenState extends State<LogementListScreen> {
           final minPrix = prix.reduce((a, b) => a < b ? a : b);
           final maxPrix = prix.reduce((a, b) => a > b ? a : b);
 
-          // Évite une plage nulle lorsque tous les prix sont identiques.
-          final sliderMax = maxPrix == minPrix
-              ? minPrix + 1
-              : maxPrix;
+          final sliderMax =
+              maxPrix == minPrix ? minPrix + 1 : maxPrix;
 
           final range = selectedRange ??
               RangeValues(minPrix, sliderMax);
 
-          final logementsFiltres = filtrerLogements(data, range);
+          final logementsFiltres =
+              filtrerLogements(data, range);
 
           return Column(
             children: [
@@ -313,9 +433,7 @@ class _LogementListScreenState extends State<LogementListScreen> {
                           values: range,
                           min: minPrix,
                           max: sliderMax,
-                          divisions: sliderMax > minPrix
-                              ? 100
-                              : null,
+                          divisions: sliderMax > minPrix ? 100 : null,
                           activeColor: violet,
                           labels: RangeLabels(
                             range.start.toStringAsFixed(0),
@@ -413,10 +531,21 @@ class _LogementListScreenState extends State<LogementListScreen> {
                         ),
                       )
                     : ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(12, 4, 12, 90),
+                        padding: const EdgeInsets.fromLTRB(
+                          12,
+                          4,
+                          12,
+                          90,
+                        ),
                         itemCount: logementsFiltres.length,
                         itemBuilder: (context, index) {
                           final logement = logementsFiltres[index];
+
+                          final estFavori =
+                              favoris.containsKey(logement.id);
+
+                          final chargement =
+                              favorisEnCours.contains(logement.id);
 
                           return Card(
                             color: Colors.white,
@@ -427,56 +556,122 @@ class _LogementListScreenState extends State<LogementListScreen> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),
                             ),
-                            child: ListTile(
-                              contentPadding: const EdgeInsets.all(15),
-                              leading: Container(
-                                width: 52,
-                                height: 52,
-                                decoration: BoxDecoration(
-                                  color: violet.withOpacity(0.10),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Icon(
-                                  Icons.home_outlined,
-                                  color: violet,
-                                  size: 30,
-                                ),
-                              ),
-                              title: Text(
-                                logement.titre,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              subtitle: Padding(
-                                padding: const EdgeInsets.only(top: 6),
-                                child: Text(logement.adresse),
-                              ),
-                              trailing: Text(
-                                '${logement.prix.toStringAsFixed(0)} DT',
-                                style: const TextStyle(
-                                  color: violet,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              onTap: () async {
-                                final result =
-                                    await Navigator.push<bool>(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => LogementDetailScreen(
-                                      logement: logement,
-                                      isProprietaire: isProprietaire,
+                            child: Stack(
+                              children: [
+                                InkWell(
+                                  borderRadius: BorderRadius.circular(16),
+                                  onTap: () async {
+                                    final result =
+                                        await Navigator.push<bool>(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            LogementDetailScreen(
+                                          logement: logement,
+                                          isProprietaire:
+                                              isProprietaire,
+                                        ),
+                                      ),
+                                    );
+
+                                    if (!mounted) return;
+
+                                    if (result == true) {
+                                      rechargerLogements();
+                                    }
+                                  },
+                                  child: Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      15,
+                                      15,
+                                      55,
+                                      15,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 52,
+                                          height: 52,
+                                          decoration: BoxDecoration(
+                                            color: violet.withOpacity(0.10),
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                          ),
+                                          child: const Icon(
+                                            Icons.home_outlined,
+                                            color: violet,
+                                            size: 30,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                logement.titre,
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 15,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 6),
+                                              Text(
+                                                logement.adresse,
+                                                style: const TextStyle(
+                                                  color: Colors.black54,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Text(
+                                                '${logement.prix.toStringAsFixed(0)} DT',
+                                                style: const TextStyle(
+                                                  color: violet,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                );
+                                ),
 
-                                if (!mounted) return;
-
-                                if (result == true) {
-                                  rechargerLogements();
-                                }
-                              },
+                                // Petit cœur en haut à droite.
+                                if (!isProprietaire)
+                                  Positioned(
+                                    top: 4,
+                                    right: 4,
+                                    child: IconButton(
+                                      tooltip: estFavori
+                                          ? 'Retirer des favoris'
+                                          : 'Ajouter aux favoris',
+                                      onPressed: chargement
+                                          ? null
+                                          : () => toggleFavori(logement.id),
+                                      icon: chargement
+                                          ? const SizedBox(
+                                              width: 20,
+                                              height: 20,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                              ),
+                                            )
+                                          : Icon(
+                                              estFavori
+                                                  ? Icons.favorite
+                                                  : Icons.favorite_border,
+                                              color: estFavori
+                                                  ? Colors.red
+                                                  : Colors.grey,
+                                              size: 27,
+                                            ),
+                                    ),
+                                  ),
+                              ],
                             ),
                           );
                         },

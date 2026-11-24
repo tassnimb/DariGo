@@ -1,6 +1,5 @@
 
 import 'package:flutter/material.dart';
-import '../../services/favori_service.dart';
 import '../../models/logement.dart';
 import '../../services/logement_service.dart';
 import 'modifier_logement_screen.dart';
@@ -221,50 +220,7 @@ class _LogementDetailScreenState
 
             if (!widget.isProprietaire) ...[
               const SizedBox(height: 30),
-SizedBox(
-  width: double.infinity,
-  child: OutlinedButton.icon(
-    icon: const Icon(
-      Icons.favorite_border,
-      color: Colors.red,
-    ),
-    label: const Text(
-      "Ajouter aux favoris",
-    ),
-    onPressed: () async {
 
-      bool success =
-          await FavoriService.addFavori(
-        logement.id,
-      );
-
-      if (!mounted) return;
-
-      if (success) {
-
-        ScaffoldMessenger.of(context)
-            .showSnackBar(
-          const SnackBar(
-            content: Text(
-              "Ajouté aux favoris ❤️",
-            ),
-          ),
-        );
-
-      } else {
-
-        ScaffoldMessenger.of(context)
-            .showSnackBar(
-          const SnackBar(
-            content: Text(
-              "Erreur lors de l'ajout",
-            ),
-          ),
-        );
-      }
-    },
-  ),
-),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
@@ -302,7 +258,9 @@ SizedBox(
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: isDeleting ? null : supprimerLogement,
+                  onPressed: isDeleting
+                      ? null
+                      : supprimerLogement,
                   icon: const Icon(Icons.delete_outline),
                   label: Text(
                     isDeleting
@@ -321,6 +279,5 @@ SizedBox(
         ),
       ),
     );
-    
   }
 }
