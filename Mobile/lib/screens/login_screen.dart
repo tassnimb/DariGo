@@ -23,8 +23,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool isLoading = false;
 
+  // Palette DariGo
+  static const Color darkGreen = Color(0xFF1F3A32);
+  static const Color warmBrown = Color(0xFF8B6B4A);
+  static const Color offWhite = Color(0xFFF7F3EE);
+  static const Color softCream = Color(0xFFEFE7DC);
+
   Future<void> login() async {
-    // Vérification des champs
     if (usernameController.text.trim().isEmpty ||
         passwordController.text.isEmpty) {
       await CustomPopup.showWarningPopup(
@@ -59,8 +64,11 @@ class _LoginScreenState extends State<LoginScreen> {
       final String role =
           (result['role'] ?? '').toString().toLowerCase();
 
-      final String access = result['access'] ?? '';
-      final String refresh = result['refresh'] ?? '';
+      final String access =
+          (result['access'] ?? '').toString();
+
+      final String refresh =
+          (result['refresh'] ?? '').toString();
 
       final String profilePhoto =
           (result['profile_photo'] ?? '').toString();
@@ -105,7 +113,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
         if (!mounted) return;
 
-        // Redirection après connexion
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -143,75 +150,208 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  InputDecoration _buildInputDecoration(
+    String hint,
+    IconData icon,
+  ) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: TextStyle(
+        color: warmBrown.withOpacity(0.8),
+        fontSize: 15,
+      ),
+      prefixIcon: Icon(
+        icon,
+        color: warmBrown,
+        size: 21,
+      ),
+      filled: true,
+      fillColor: Colors.white,
+      contentPadding: const EdgeInsets.symmetric(
+        vertical: 16,
+        horizontal: 20,
+      ),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(20),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(20),
+        borderSide: const BorderSide(
+          color: softCream,
+          width: 1,
+        ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(20),
+        borderSide: const BorderSide(
+          color: darkGreen,
+          width: 1.5,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(30),
-          child: Column(
-            children: [
-              const Text(
-                'DariGo',
-                style: TextStyle(
-                  fontSize: 35,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue,
-                ),
+      backgroundColor: offWhite,
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            // Image d'accueil
+            ClipRRect(
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(42),
+                bottomRight: Radius.circular(42),
               ),
-
-              const SizedBox(height: 40),
-
-              TextField(
-                controller: usernameController,
-                decoration: const InputDecoration(
-                  labelText: 'Username',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.person),
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              TextField(
-                controller: passwordController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Password',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.lock),
-                ),
-              ),
-
-              const SizedBox(height: 25),
-
-              SizedBox(
+              child: Image.asset(
+                'assets/images/i1.jpeg',
+                height: 255,
                 width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: isLoading ? null : login,
-                  child: isLoading
-                      ? const CircularProgressIndicator(
-                          color: Colors.white,
-                        )
-                      : const Text('Sign In'),
-                ),
+                fit: BoxFit.cover,
               ),
+            ),
 
-              const SizedBox(height: 10),
-
-              TextButton(
-                onPressed: () {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const RegisterScreen(),
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 30,
+                vertical: 22,
+              ),
+              child: Column(
+                children: [
+                  const Text(
+                    'DariGo',
+                    style: TextStyle(
+                      fontFamily: 'Georgia',
+                      fontSize: 42,
+                      fontWeight: FontWeight.bold,
+                      color: darkGreen,
+                      letterSpacing: -0.5,
                     ),
-                  );
-                },
-                child: const Text('Create Account'),
+                  ),
+
+                  const SizedBox(height: 4),
+
+                  const Text(
+                    'Trouvez votre logement idéal',
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: warmBrown,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+
+                  const SizedBox(height: 26),
+
+                  // Champ nom d'utilisateur
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: warmBrown.withOpacity(0.08),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: TextField(
+                      controller: usernameController,
+                      style: const TextStyle(color: darkGreen),
+                      decoration: _buildInputDecoration(
+                        "Nom d'utilisateur",
+                        Icons.person_rounded,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 15),
+
+                  // Champ mot de passe
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: warmBrown.withOpacity(0.08),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: TextField(
+                      controller: passwordController,
+                      obscureText: true,
+                      style: const TextStyle(color: darkGreen),
+                      decoration: _buildInputDecoration(
+                        'Mot de passe',
+                        Icons.lock_rounded,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Bouton connexion
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: isLoading ? null : login,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: darkGreen,
+                        foregroundColor: offWhite,
+                        elevation: 6,
+                        shadowColor: darkGreen.withOpacity(0.35),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(26),
+                        ),
+                      ),
+                      child: isLoading
+                          ? const SizedBox(
+                              height: 22,
+                              width: 22,
+                              child: CircularProgressIndicator(
+                                color: offWhite,
+                                strokeWidth: 2.5,
+                              ),
+                            )
+                          : const Text(
+                              'Se connecter',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  // Créer un compte
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const RegisterScreen(),
+                        ),
+                      );
+                    },
+                    child: const Text(
+                      'Créer un compte',
+                      style: TextStyle(
+                        color: warmBrown,
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
