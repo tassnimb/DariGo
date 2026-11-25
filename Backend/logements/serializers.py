@@ -1,4 +1,3 @@
-
 from rest_framework import serializers
 from django.utils import timezone
 
@@ -9,18 +8,88 @@ from .models import (
     Favori,
     Avis,
 )
-from django.db import transaction
-from rest_framework.exceptions import ValidationError
+
+
+# ======================================================
+# PHOTOS
+# ======================================================
+
+class PhotoLogementSerializer(serializers.ModelSerializer):
+
+    image = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PhotoLogement
+        fields = [
+            'id',
+            'image',
+        ]
+
+    def get_image(self, obj):
+        request = self.context.get('request')
+
+        if request:
+            return request.build_absolute_uri(
+                obj.image.url
+            )
+
+        return obj.image.url
+
+
+# ======================================================
+# LOGEMENT
+# ======================================================
+
 class LogementSerializer(serializers.ModelSerializer):
+
+    photos = PhotoLogementSerializer(
+        many=True,
+        read_only=True
+    )
+
+    proprietaire_username = serializers.CharField(
+        source='proprietaire.username',
+        read_only=True
+    )
+
     class Meta:
         model = Logement
-        fields = '__all__'
+
+        fields = [
+            'id',
+            'titre',
+            'description',
+            'adresse',
+            'prix',
+            'latitude',
+            'longitude',
+            'type_logement',
+            'type_hebergement',
+            'pays',
+            'ville',
+            'gouvernorat',
+            'code_postal',
+            'nombre_voyageurs',
+            'chambres',
+            'lits',
+            'salles_bain',
+            'proprietaire',
+            'proprietaire_username',
+            'date_creation',
+            'photos',
+        ]
+
         read_only_fields = [
             'proprietaire',
+            'proprietaire_username',
             'date_creation',
+            'photos',
         ]
 
 
+# ======================================================
+# RESERVATION
+# ======================================================
 
 class ReservationSerializer(serializers.ModelSerializer):
 
@@ -39,20 +108,7 @@ class ReservationSerializer(serializers.ModelSerializer):
         read_only=True
     )
 
-    # Photo de profil du visiteur
     visiteur_photo = serializers.SerializerMethodField()
-
-    def get_visiteur_photo(self, obj):
-        if obj.visiteur and obj.visiteur.profile_photo:
-            request = self.context.get('request')
-            photo_url = obj.visiteur.profile_photo.url
-
-            if request:
-                return request.build_absolute_uri(photo_url)
-
-            return photo_url
-
-        return None
 
     logement_titre = serializers.CharField(
         source='logement.titre',
@@ -85,6 +141,21 @@ class ReservationSerializer(serializers.ModelSerializer):
             'date_creation',
         ]
 
+    def get_visiteur_photo(self, obj):
+
+        if obj.visiteur and obj.visiteur.profile_photo:
+
+            request = self.context.get('request')
+
+            if request:
+                return request.build_absolute_uri(
+                    obj.visiteur.profile_photo.url
+                )
+
+            return obj.visiteur.profile_photo.url
+
+        return None
+
     def validate(self, attrs):
 
         date_arrivee = attrs.get('date_arrivee')
@@ -113,7 +184,6 @@ class ReservationSerializer(serializers.ModelSerializer):
                 "Vous ne pouvez pas réserver votre propre logement."
             )
 
-        # Vérifier les réservations en attente et acceptées
         conflit = Reservation.objects.filter(
             logement=logement,
             statut__in=['en_attente', 'acceptee'],
@@ -123,12 +193,15 @@ class ReservationSerializer(serializers.ModelSerializer):
 
         if conflit:
             raise serializers.ValidationError(
-                "Ce logement n'est pas disponible pour ces dates. "
-                "Veuillez choisir une autre période."
+                "Ce logement n'est pas disponible pour ces dates."
             )
 
         return attrs
 
+
+# ======================================================
+# MISE À JOUR STATUT RÉSERVATION
+# ======================================================
 
 class ReservationStatutSerializer(serializers.ModelSerializer):
 
@@ -144,8 +217,6 @@ class ReservationStatutSerializer(serializers.ModelSerializer):
             )
 
         return value
-
-
 class FavoriSerializer(serializers.ModelSerializer):
 
     logement_titre = serializers.CharField(

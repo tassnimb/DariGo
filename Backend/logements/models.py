@@ -21,8 +21,8 @@ class Logement(models.Model):
 
     TYPE_HEBERGEMENT_CHOICES = [
         ('entier', 'Logement entier'),
-        ('privee', 'Chambre privée'),
-        ('partagee', 'Chambre partagée'),
+        ('privee', 'Chambre privee'),
+        ('partagee', 'Chambre partagee'),
     ]
 
     # Informations principales
