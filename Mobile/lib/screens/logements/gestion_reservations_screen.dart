@@ -16,6 +16,8 @@ class _GestionReservationsScreenState
   bool chargement = true;
   String? erreur;
 
+  static const String serveurUrl = 'http://127.0.0.1:8000';
+
   @override
   void initState() {
     super.initState();
@@ -43,10 +45,7 @@ class _GestionReservationsScreenState
     }
   }
 
-  Future<void> changerStatut(
-    int id,
-    String statut,
-  ) async {
+  Future<void> changerStatut(int id, String statut) async {
     try {
       await ReservationService.updateStatut(
         reservationId: id,
@@ -93,6 +92,79 @@ class _GestionReservationsScreenState
     }
   }
 
+  String? obtenirPhotoUrl(dynamic photo) {
+    if (photo == null || photo.toString().isEmpty) {
+      return null;
+    }
+
+    String url = photo.toString();
+
+    // URL déjà complète
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+
+    // URL relative
+    if (!url.startsWith('/')) {
+      url = '/$url';
+    }
+
+    return '$serveurUrl$url';
+  }
+
+  Widget afficherPhoto(dynamic photo) {
+    final photoUrl = obtenirPhotoUrl(photo);
+
+    return Container(
+      width: 75,
+      height: 75,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: Colors.deepPurple,
+          width: 2,
+        ),
+      ),
+      child: ClipOval(
+        child: photoUrl == null
+            ? Container(
+                color: Colors.deepPurple.shade50,
+                child: const Icon(
+                  Icons.person,
+                  size: 40,
+                  color: Colors.deepPurple,
+                ),
+              )
+            : Image.network(
+                photoUrl,
+                width: 75,
+                height: 75,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    color: Colors.deepPurple.shade50,
+                    child: const Icon(
+                      Icons.person,
+                      size: 40,
+                      color: Colors.deepPurple,
+                    ),
+                  );
+                },
+              ),
+      ),
+    );
+  }
+
+  Widget ligneDetail(String titre, dynamic contenu) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 5),
+      child: Text(
+        '$titre : ${valeur(contenu)}',
+        style: const TextStyle(fontSize: 14),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -133,11 +205,11 @@ class _GestionReservationsScreenState
                         itemCount: reservations.length,
                         itemBuilder: (context, index) {
                           final r = reservations[index];
-                          final statut =
-                              valeur(r['statut']);
+                          final statut = valeur(r['statut']);
 
                           return Card(
                             margin: const EdgeInsets.only(bottom: 14),
+                            elevation: 3,
                             child: Padding(
                               padding: const EdgeInsets.all(14),
                               child: Column(
@@ -151,23 +223,87 @@ class _GestionReservationsScreenState
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
+
+                                  const SizedBox(height: 15),
+
+                                  // PHOTO ET INFORMATIONS DU VISITEUR
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      afficherPhoto(r['visiteur_photo']),
+                                      const SizedBox(width: 15),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              valeur(
+                                                r['visiteur_username'],
+                                              ),
+                                              style: const TextStyle(
+                                                fontSize: 16,
+                                                fontWeight:
+                                                    FontWeight.bold,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 5),
+                                            Text(
+                                              valeur(
+                                                r['visiteur_email'],
+                                              ),
+                                              style: const TextStyle(
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 5),
+                                            Text(
+                                              valeur(
+                                                r['visiteur_phone'],
+                                              ),
+                                              style: const TextStyle(
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+
+                                  const Divider(height: 25),
+
+                                  ligneDetail(
+                                    'Arrivée',
+                                    r['date_arrivee'],
+                                  ),
+                                  ligneDetail(
+                                    'Départ',
+                                    r['date_depart'],
+                                  ),
+                                  ligneDetail(
+                                    'Personnes',
+                                    r['nombre_personnes'],
+                                  ),
+                                  ligneDetail(
+                                    'Besoins',
+                                    r['besoins'],
+                                  ),
+                                  ligneDetail(
+                                    'Message',
+                                    r['message'],
+                                  ),
+
                                   const SizedBox(height: 10),
-                                  Text('Visiteur : ${valeur(r['visiteur_username'])}'),
-                                  Text('Email : ${valeur(r['visiteur_email'])}'),
-                                  Text('Téléphone : ${valeur(r['visiteur_phone'])}'),
-                                  const Divider(),
-                                  Text('Arrivée : ${valeur(r['date_arrivee'])}'),
-                                  Text('Départ : ${valeur(r['date_depart'])}'),
-                                  Text('Personnes : ${valeur(r['nombre_personnes'])}'),
-                                  Text('Besoins : ${valeur(r['besoins'])}'),
-                                  Text('Message : ${valeur(r['message'])}'),
-                                  const SizedBox(height: 10),
+
                                   Text(
                                     'Statut : ${traduireStatut(statut)}',
                                     style: const TextStyle(
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
+
                                   if (statut == 'en_attente') ...[
                                     const SizedBox(height: 12),
                                     Row(
@@ -179,11 +315,15 @@ class _GestionReservationsScreenState
                                               r['id'] as int,
                                               'acceptee',
                                             ),
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.green,
-                                              foregroundColor: Colors.white,
+                                            style:
+                                                ElevatedButton.styleFrom(
+                                              backgroundColor:
+                                                  Colors.green,
+                                              foregroundColor:
+                                                  Colors.white,
                                             ),
-                                            child: const Text('Accepter'),
+                                            child:
+                                                const Text('Accepter'),
                                           ),
                                         ),
                                         const SizedBox(width: 10),
@@ -194,11 +334,14 @@ class _GestionReservationsScreenState
                                               r['id'] as int,
                                               'refusee',
                                             ),
-                                            style: ElevatedButton.styleFrom(
+                                            style:
+                                                ElevatedButton.styleFrom(
                                               backgroundColor: Colors.red,
-                                              foregroundColor: Colors.white,
+                                              foregroundColor:
+                                                  Colors.white,
                                             ),
-                                            child: const Text('Refuser'),
+                                            child:
+                                                const Text('Refuser'),
                                           ),
                                         ),
                                       ],

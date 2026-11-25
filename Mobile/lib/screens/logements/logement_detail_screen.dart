@@ -1,5 +1,6 @@
 
 import 'package:flutter/material.dart';
+
 import '../../models/logement.dart';
 import '../../services/logement_service.dart';
 import '../../services/avis_service.dart';
@@ -24,6 +25,7 @@ class LogementDetailScreen extends StatefulWidget {
 class _LogementDetailScreenState
     extends State<LogementDetailScreen> {
   bool isDeleting = false;
+
   late Future<List<Map<String, dynamic>>> avisFuture;
 
   static const violet = Color(0xFF6C4AB6);
@@ -72,7 +74,8 @@ class _LogementDetailScreenState
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
+            onPressed: () =>
+                Navigator.pop(dialogContext, false),
             child: const Text('Annuler'),
           ),
           ElevatedButton(
@@ -80,7 +83,8 @@ class _LogementDetailScreenState
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
             ),
-            onPressed: () => Navigator.pop(dialogContext, true),
+            onPressed: () =>
+                Navigator.pop(dialogContext, true),
             child: const Text('Supprimer'),
           ),
         ],
@@ -143,7 +147,8 @@ class _LogementDetailScreenState
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: avisFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.connectionState ==
+            ConnectionState.waiting) {
           return const Center(
             child: CircularProgressIndicator(),
           );
@@ -195,7 +200,8 @@ class _LogementDetailScreenState
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment:
+                          CrossAxisAlignment.start,
                       children: [
                         construireEtoiles(moyenne),
                         Text(
@@ -214,14 +220,16 @@ class _LogementDetailScreenState
             const SizedBox(height: 15),
 
             ...avis.map((item) {
-              final note = (item['note'] as num).toDouble();
+              final note =
+                  (item['note'] as num).toDouble();
 
               return Card(
                 margin: const EdgeInsets.only(bottom: 12),
                 child: Padding(
                   padding: const EdgeInsets.all(14),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment:
+                        CrossAxisAlignment.start,
                     children: [
                       Text(
                         item['visiteur_username'] ?? 'Visiteur',
@@ -234,7 +242,9 @@ class _LogementDetailScreenState
                       construireEtoiles(note),
                       const SizedBox(height: 8),
                       Text(
-                        (item['commentaire'] ?? '').toString().isEmpty
+                        (item['commentaire'] ?? '')
+                                .toString()
+                                .isEmpty
                             ? 'Aucun commentaire.'
                             : item['commentaire'].toString(),
                         style: const TextStyle(fontSize: 15),
@@ -256,28 +266,21 @@ class _LogementDetailScreenState
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F6FA),
+
       appBar: AppBar(
         title: const Text('Détail du logement'),
         backgroundColor: violet,
         foregroundColor: Colors.white,
       ),
+
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: double.infinity,
-              height: 190,
-              decoration: BoxDecoration(
-                color: violet.withOpacity(0.10),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Icon(
-                Icons.home_work_outlined,
-                color: violet,
-                size: 85,
-              ),
+            // GALERIE PHOTOS
+            _GaleriePhotos(
+              photos: logement.photos,
             ),
 
             const SizedBox(height: 22),
@@ -380,6 +383,7 @@ class _LogementDetailScreenState
 
             if (widget.isProprietaire) ...[
               const SizedBox(height: 30),
+
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
@@ -399,9 +403,8 @@ class _LogementDetailScreenState
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: isDeleting
-                      ? null
-                      : supprimerLogement,
+                  onPressed:
+                      isDeleting ? null : supprimerLogement,
                   icon: const Icon(Icons.delete_outline),
                   label: Text(
                     isDeleting
@@ -419,6 +422,156 @@ class _LogementDetailScreenState
           ],
         ),
       ),
+    );
+  }
+}
+
+// ======================================================
+// GALERIE PHOTOS DU LOGEMENT
+// ======================================================
+
+class _GaleriePhotos extends StatefulWidget {
+  final List<String> photos;
+
+  const _GaleriePhotos({
+    required this.photos,
+  });
+
+  @override
+  State<_GaleriePhotos> createState() =>
+      _GaleriePhotosState();
+}
+
+class _GaleriePhotosState extends State<_GaleriePhotos> {
+  int photoActuelle = 0;
+
+  static const violet = Color(0xFF6C4AB6);
+
+  @override
+  Widget build(BuildContext context) {
+    // S'il n'y a aucune photo.
+    if (widget.photos.isEmpty) {
+      return Container(
+        width: double.infinity,
+        height: 250,
+        decoration: BoxDecoration(
+          color: violet.withOpacity(0.10),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Icon(
+          Icons.home_work_outlined,
+          color: violet,
+          size: 85,
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        SizedBox(
+          width: double.infinity,
+          height: 250,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: Stack(
+              children: [
+                // Swipe entre les photos.
+                PageView.builder(
+                  itemCount: widget.photos.length,
+                  onPageChanged: (index) {
+                    setState(() {
+                      photoActuelle = index;
+                    });
+                  },
+                  itemBuilder: (context, index) {
+                    return Image.network(
+                      widget.photos[index],
+                      width: double.infinity,
+                      height: 250,
+                      fit: BoxFit.cover,
+                      loadingBuilder:
+                          (context, child, progress) {
+                        if (progress == null) return child;
+
+                        return Container(
+                          color: violet.withOpacity(0.08),
+                          child: const Center(
+                            child: CircularProgressIndicator(
+                              color: violet,
+                            ),
+                          ),
+                        );
+                      },
+                      errorBuilder:
+                          (context, error, stackTrace) {
+                        return Container(
+                          color: violet.withOpacity(0.10),
+                          child: const Icon(
+                            Icons.broken_image_outlined,
+                            color: violet,
+                            size: 60,
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+
+                // Compteur en haut à droite.
+                if (widget.photos.length > 1)
+                  Positioned(
+                    top: 12,
+                    right: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '${photoActuelle + 1}/${widget.photos.length}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+
+        // Petits points sous les photos.
+        if (widget.photos.length > 1) ...[
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(
+              widget.photos.length,
+              (index) {
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                  ),
+                  width: photoActuelle == index ? 20 : 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: photoActuelle == index
+                        ? violet
+                        : violet.withOpacity(0.25),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

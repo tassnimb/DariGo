@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -27,6 +28,7 @@ class _LogementListScreenState extends State<LogementListScreen> {
 
   String role = '';
   String recherche = '';
+  String? profilePhotoUrl;
 
   RangeValues? selectedRange;
   int ordrePrix = 0;
@@ -46,6 +48,7 @@ class _LogementListScreenState extends State<LogementListScreen> {
     chargerRole();
   }
 
+  // Charger le rôle et la photo de profil de l'utilisateur.
   Future<void> chargerRole() async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -54,8 +57,11 @@ class _LogementListScreenState extends State<LogementListScreen> {
     final nouveauRole =
         (prefs.getString('role') ?? '').toLowerCase();
 
+    final photo = prefs.getString('profile_photo');
+
     setState(() {
       role = nouveauRole;
+      profilePhotoUrl = photo;
     });
 
     if (nouveauRole != 'proprietaire') {
@@ -158,7 +164,9 @@ class _LogementListScreenState extends State<LogementListScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Erreur lors de la modification du favori : $e'),
+          content: Text(
+            'Erreur lors de la modification du favori : $e',
+          ),
         ),
       );
     } finally {
@@ -311,6 +319,38 @@ class _LogementListScreenState extends State<LogementListScreen> {
               },
             ),
 
+          // Photo de profil de l'utilisateur connecté.
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: CircleAvatar(
+              radius: 18,
+              backgroundColor: Colors.white,
+              child: ClipOval(
+                child: profilePhotoUrl != null &&
+                        profilePhotoUrl!.isNotEmpty
+                    ? Image.network(
+                        profilePhotoUrl!,
+                        width: 36,
+                        height: 36,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Icon(
+                            Icons.person,
+                            color: violet,
+                            size: 25,
+                          );
+                        },
+                      )
+                    : const Icon(
+                        Icons.person,
+                        color: violet,
+                        size: 25,
+                      ),
+              ),
+            ),
+          ),
+
+          // Déconnexion.
           IconButton(
             tooltip: 'Déconnexion',
             onPressed: retournerLogin,
@@ -332,9 +372,12 @@ class _LogementListScreenState extends State<LogementListScreen> {
       body: FutureBuilder<List<Logement>>(
         future: logementsFuture,
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (snapshot.connectionState ==
+              ConnectionState.waiting) {
             return const Center(
-              child: CircularProgressIndicator(color: violet),
+              child: CircularProgressIndicator(
+                color: violet,
+              ),
             );
           }
 
@@ -379,8 +422,10 @@ class _LogementListScreenState extends State<LogementListScreen> {
 
           final prix = data.map((e) => e.prix).toList();
 
-          final minPrix = prix.reduce((a, b) => a < b ? a : b);
-          final maxPrix = prix.reduce((a, b) => a > b ? a : b);
+          final minPrix =
+              prix.reduce((a, b) => a < b ? a : b);
+          final maxPrix =
+              prix.reduce((a, b) => a > b ? a : b);
 
           final sliderMax =
               maxPrix == minPrix ? minPrix + 1 : maxPrix;
@@ -420,7 +465,8 @@ class _LogementListScreenState extends State<LogementListScreen> {
                     );
 
                     final filtreWidget = Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                      crossAxisAlignment:
+                          CrossAxisAlignment.end,
                       children: [
                         const Text(
                           'Prix (DT)',
@@ -433,7 +479,8 @@ class _LogementListScreenState extends State<LogementListScreen> {
                           values: range,
                           min: minPrix,
                           max: sliderMax,
-                          divisions: sliderMax > minPrix ? 100 : null,
+                          divisions:
+                              sliderMax > minPrix ? 100 : null,
                           activeColor: violet,
                           labels: RangeLabels(
                             range.start.toStringAsFixed(0),
@@ -455,9 +502,12 @@ class _LogementListScreenState extends State<LogementListScreen> {
 
                     if (constraints.maxWidth >= 600) {
                       return Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
+                        crossAxisAlignment:
+                            CrossAxisAlignment.center,
                         children: [
-                          Expanded(child: rechercheWidget),
+                          Expanded(
+                            child: rechercheWidget,
+                          ),
                           const SizedBox(width: 20),
                           SizedBox(
                             width: 230,
@@ -485,7 +535,8 @@ class _LogementListScreenState extends State<LogementListScreen> {
               ),
 
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
                   children: [
                     Text(
@@ -539,7 +590,8 @@ class _LogementListScreenState extends State<LogementListScreen> {
                         ),
                         itemCount: logementsFiltres.length,
                         itemBuilder: (context, index) {
-                          final logement = logementsFiltres[index];
+                          final logement =
+                              logementsFiltres[index];
 
                           final estFavori =
                               favoris.containsKey(logement.id);
@@ -554,12 +606,14 @@ class _LogementListScreenState extends State<LogementListScreen> {
                               vertical: 7,
                             ),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius:
+                                  BorderRadius.circular(16),
                             ),
                             child: Stack(
                               children: [
                                 InkWell(
-                                  borderRadius: BorderRadius.circular(16),
+                                  borderRadius:
+                                      BorderRadius.circular(16),
                                   onTap: () async {
                                     final result =
                                         await Navigator.push<bool>(
@@ -581,7 +635,8 @@ class _LogementListScreenState extends State<LogementListScreen> {
                                     }
                                   },
                                   child: Padding(
-                                    padding: const EdgeInsets.fromLTRB(
+                                    padding:
+                                        const EdgeInsets.fromLTRB(
                                       15,
                                       15,
                                       55,
@@ -589,20 +644,11 @@ class _LogementListScreenState extends State<LogementListScreen> {
                                     ),
                                     child: Row(
                                       children: [
-                                        Container(
-                                          width: 52,
-                                          height: 52,
-                                          decoration: BoxDecoration(
-                                            color: violet.withOpacity(0.10),
-                                            borderRadius:
-                                                BorderRadius.circular(12),
-                                          ),
-                                          child: const Icon(
-                                            Icons.home_outlined,
-                                            color: violet,
-                                            size: 30,
-                                          ),
+                                        // Galerie photos du logement.
+                                        _PhotosLogement(
+                                          photos: logement.photos,
                                         ),
+
                                         const SizedBox(width: 12),
 
                                         Expanded(
@@ -613,7 +659,8 @@ class _LogementListScreenState extends State<LogementListScreen> {
                                               Text(
                                                 logement.titre,
                                                 style: const TextStyle(
-                                                  fontWeight: FontWeight.bold,
+                                                  fontWeight:
+                                                      FontWeight.bold,
                                                   fontSize: 15,
                                                 ),
                                               ),
@@ -629,7 +676,8 @@ class _LogementListScreenState extends State<LogementListScreen> {
                                                 '${logement.prix.toStringAsFixed(0)} DT',
                                                 style: const TextStyle(
                                                   color: violet,
-                                                  fontWeight: FontWeight.bold,
+                                                  fontWeight:
+                                                      FontWeight.bold,
                                                 ),
                                               ),
                                             ],
@@ -651,12 +699,15 @@ class _LogementListScreenState extends State<LogementListScreen> {
                                           : 'Ajouter aux favoris',
                                       onPressed: chargement
                                           ? null
-                                          : () => toggleFavori(logement.id),
+                                          : () => toggleFavori(
+                                                logement.id,
+                                              ),
                                       icon: chargement
                                           ? const SizedBox(
                                               width: 20,
                                               height: 20,
-                                              child: CircularProgressIndicator(
+                                              child:
+                                                  CircularProgressIndicator(
                                                 strokeWidth: 2,
                                               ),
                                             )
@@ -680,6 +731,158 @@ class _LogementListScreenState extends State<LogementListScreen> {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+// ======================================================
+// WIDGET GALERIE PHOTOS
+// ======================================================
+
+class _PhotosLogement extends StatefulWidget {
+  final List<String> photos;
+
+  const _PhotosLogement({
+    required this.photos,
+  });
+
+  @override
+  State<_PhotosLogement> createState() =>
+      _PhotosLogementState();
+}
+
+class _PhotosLogementState extends State<_PhotosLogement> {
+  int photoActuelle = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    const violet = Color(0xFF6C4AB6);
+
+    // Aucune photo : afficher l'icône de maison.
+    if (widget.photos.isEmpty) {
+      return Container(
+        width: 125,
+        height: 110,
+        decoration: BoxDecoration(
+          color: violet.withOpacity(0.10),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Icon(
+          Icons.home_outlined,
+          color: violet,
+          size: 40,
+        ),
+      );
+    }
+
+    return SizedBox(
+      width: 125,
+      height: 110,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Stack(
+          children: [
+            // Galerie avec swipe horizontal.
+            PageView.builder(
+              itemCount: widget.photos.length,
+              onPageChanged: (index) {
+                setState(() {
+                  photoActuelle = index;
+                });
+              },
+              itemBuilder: (context, index) {
+                return Image.network(
+                  widget.photos[index],
+                  width: 125,
+                  height: 110,
+                  fit: BoxFit.cover,
+                  loadingBuilder:
+                      (context, child, loadingProgress) {
+                    if (loadingProgress == null) {
+                      return child;
+                    }
+
+                    return Container(
+                      color: violet.withOpacity(0.10),
+                      child: const Center(
+                        child: CircularProgressIndicator(
+                          color: violet,
+                          strokeWidth: 2,
+                        ),
+                      ),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      color: violet.withOpacity(0.10),
+                      child: const Icon(
+                        Icons.broken_image_outlined,
+                        color: violet,
+                        size: 35,
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+
+            // Indicateurs des photos.
+            if (widget.photos.length > 1)
+              Positioned(
+                bottom: 6,
+                left: 0,
+                right: 0,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(
+                    widget.photos.length,
+                    (index) {
+                      return Container(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 2,
+                        ),
+                        width: photoActuelle == index ? 8 : 5,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: photoActuelle == index
+                              ? Colors.white
+                              : Colors.white.withOpacity(0.55),
+                          borderRadius:
+                              BorderRadius.circular(10),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+
+            // Nombre de photos.
+            if (widget.photos.length > 1)
+              Positioned(
+                top: 5,
+                right: 5,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${photoActuelle + 1}/${widget.photos.length}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

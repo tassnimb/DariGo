@@ -63,6 +63,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final String access = result['access'] ?? '';
       final String refresh = result['refresh'] ?? '';
+      final String profilePhoto =
+    (result['profile_photo'] ?? '').toString();
 
       if (access.isEmpty || refresh.isEmpty) {
         throw Exception("Les jetons d'authentification sont absents.");
@@ -74,6 +76,21 @@ class _LoginScreenState extends State<LoginScreen> {
       await prefs.setString("access", access);
       await prefs.setString("refresh", refresh);
       await prefs.setString("role", role);
+      // Enregistrer l'URL de la photo de profil
+if (profilePhoto.isNotEmpty) {
+  String photoUrl;
+
+  if (profilePhoto.startsWith('http')) {
+    photoUrl = profilePhoto;
+  } else {
+    photoUrl =
+        'http://127.0.0.1:8000${profilePhoto.startsWith('/') ? '' : '/'}$profilePhoto';
+  }
+
+  await prefs.setString('profile_photo', photoUrl);
+} else {
+  await prefs.remove('profile_photo');
+}
 
       if (!mounted) return;
 
