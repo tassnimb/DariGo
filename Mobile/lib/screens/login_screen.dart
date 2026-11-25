@@ -1,7 +1,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
+import '../widgets/custom_popup.dart';
 import '../services/api_service.dart';
 import 'register_screen.dart';
 import 'logements/logement_list_screen.dart';
@@ -23,13 +23,13 @@ class _LoginScreenState extends State<LoginScreen> {
   bool isLoading = false;
 
   Future<void> login() async {
+    // Vérification des champs
     if (usernameController.text.trim().isEmpty ||
         passwordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Veuillez remplir tous les champs"),
-          backgroundColor: Colors.red,
-        ),
+      await CustomPopup.showWarningPopup(
+        context: context,
+        title: 'Champs obligatoires',
+        message: 'Veuillez remplir tous les champs.',
       );
       return;
     }
@@ -47,13 +47,10 @@ class _LoginScreenState extends State<LoginScreen> {
       if (result == null) {
         if (!mounted) return;
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              "Nom d'utilisateur ou mot de passe incorrect",
-            ),
-            backgroundColor: Colors.red,
-          ),
+        await CustomPopup.showErrorPopup(
+          context: context,
+          title: 'Connexion échouée',
+          message: "Nom d'utilisateur ou mot de passe incorrect.",
         );
         return;
       }
@@ -65,26 +62,22 @@ class _LoginScreenState extends State<LoginScreen> {
       final String refresh = result['refresh'] ?? '';
 
       if (access.isEmpty || refresh.isEmpty) {
-        throw Exception("Les jetons d'authentification sont absents.");
+        throw Exception(
+          "Les jetons d'authentification sont absents.",
+        );
       }
 
       final SharedPreferences prefs =
           await SharedPreferences.getInstance();
 
-      await prefs.setString("access", access);
-      await prefs.setString("refresh", refresh);
-      await prefs.setString("role", role);
+      await prefs.setString('access', access);
+      await prefs.setString('refresh', refresh);
+      await prefs.setString('role', role);
 
       if (!mounted) return;
 
-      if (role == "proprietaire" || role == "visiteur") {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Connexion réussie !"),
-            backgroundColor: Colors.green,
-          ),
-        );
-
+      if (role == 'proprietaire' || role == 'visiteur') {
+        // Redirection après connexion
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -92,21 +85,19 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Rôle inconnu : $role"),
-            backgroundColor: Colors.red,
-          ),
+        await CustomPopup.showErrorPopup(
+          context: context,
+          title: 'Rôle inconnu',
+          message: 'Le rôle "$role" ne permet pas de se connecter.',
         );
       }
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Erreur de connexion : $e"),
-          backgroundColor: Colors.red,
-        ),
+      await CustomPopup.showErrorPopup(
+        context: context,
+        title: 'Erreur de connexion',
+        message: 'Une erreur est survenue : $e',
       );
     } finally {
       if (mounted) {
@@ -133,7 +124,7 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             children: [
               const Text(
-                "DariGo",
+                'DariGo',
                 style: TextStyle(
                   fontSize: 35,
                   fontWeight: FontWeight.bold,
@@ -146,7 +137,7 @@ class _LoginScreenState extends State<LoginScreen> {
               TextField(
                 controller: usernameController,
                 decoration: const InputDecoration(
-                  labelText: "Username",
+                  labelText: 'Username',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.person),
                 ),
@@ -158,7 +149,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 controller: passwordController,
                 obscureText: true,
                 decoration: const InputDecoration(
-                  labelText: "Password",
+                  labelText: 'Password',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.lock),
                 ),
@@ -174,7 +165,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ? const CircularProgressIndicator(
                           color: Colors.white,
                         )
-                      : const Text("Sign In"),
+                      : const Text('Sign In'),
                 ),
               ),
 
@@ -189,7 +180,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   );
                 },
-                child: const Text("Create Account"),
+                child: const Text('Create Account'),
               ),
             ],
           ),

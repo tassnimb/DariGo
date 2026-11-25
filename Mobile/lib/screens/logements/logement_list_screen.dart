@@ -1,10 +1,17 @@
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../messagerie/conversations_screen.dart';
 import '../favoris/mes_favoris_screen.dart';
+
 import '../../services/favori_service.dart';
 import '../../services/logement_service.dart';
+import '../../services/messagerie_service.dart';
+
 import '../../models/logement.dart';
+
+import '../../widgets/custom_popup.dart';
 
 import 'mes_reservations_screen.dart';
 import '../login_screen.dart';
@@ -31,6 +38,9 @@ class _LogementListScreenState extends State<LogementListScreen> {
   RangeValues? selectedRange;
   int ordrePrix = 0;
 
+  // Nombre total de messages non lus.
+  int totalMessagesNonLus = 0;
+
   // logementId -> favoriId
   final Map<int, int> favoris = {};
 
@@ -42,10 +52,14 @@ class _LogementListScreenState extends State<LogementListScreen> {
   @override
   void initState() {
     super.initState();
+
     logementsFuture = LogementService.getLogements();
+
     chargerRole();
+    chargerMessagesNonLus();
   }
 
+  // Charger le rôle de l'utilisateur.
   Future<void> chargerRole() async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -61,6 +75,99 @@ class _LogementListScreenState extends State<LogementListScreen> {
     if (nouveauRole != 'proprietaire') {
       await chargerFavoris();
     }
+  }
+
+  // Charger le nombre total de messages non lus.
+  Future<void> chargerMessagesNonLus() async {
+    try {
+      final liste = await MessagerieService.getConversations();
+
+      int total = 0;
+
+      for (final conversation in liste) {
+        if (conversation is! Map) continue;
+
+        final valeur = conversation['messages_non_lus'];
+
+        if (valeur is num) {
+          total += valeur.toInt();
+        } else {
+          total += int.tryParse(
+                valeur?.toString() ?? '',
+              ) ??
+              0;
+        }
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        totalMessagesNonLus = total;
+      });
+    } catch (e) {
+      debugPrint(
+        'Erreur chargement messages non lus : $e',
+      );
+    }
+  }
+
+  // Construire l'icône de messagerie avec son badge.
+  Widget construireIconeMessagerie() {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        const Icon(
+          Icons.chat_bubble_outline,
+          size: 27,
+          color: Colors.white,
+        ),
+
+        if (totalMessagesNonLus > 0)
+          Positioned(
+            right: -9,
+            top: -8,
+            child: Container(
+              constraints: const BoxConstraints(
+                minWidth: 19,
+                minHeight: 19,
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 4,
+                vertical: 2,
+              ),
+              decoration: const BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                totalMessagesNonLus > 99
+                    ? '99+'
+                    : totalMessagesNonLus.toString(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  // Ouvrir les conversations et actualiser le badge au retour.
+  Future<void> ouvrirConversations() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const ConversationsScreen(),
+      ),
+    );
+
+    if (!mounted) return;
+
+    await chargerMessagesNonLus();
   }
 
   // Récupérer les favoris déjà enregistrés.
@@ -129,11 +236,10 @@ class _LogementListScreenState extends State<LogementListScreen> {
             favoris.remove(logementId);
           });
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Retiré des favoris'),
-              duration: Duration(seconds: 2),
-            ),
+          await CustomPopup.showSuccessPopup(
+            context: context,
+            title: 'Favoris',
+            message: 'Logement retiré des favoris.',
           );
         }
       } else {
@@ -145,21 +251,20 @@ class _LogementListScreenState extends State<LogementListScreen> {
 
           if (!mounted) return;
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Ajouté aux favoris ❤️'),
-              duration: Duration(seconds: 2),
-            ),
+          await CustomPopup.showSuccessPopup(
+            context: context,
+            title: 'Favoris',
+            message: 'Logement ajouté aux favoris avec succès !',
           );
         }
       }
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur lors de la modification du favori : $e'),
-        ),
+      await CustomPopup.showErrorPopup(
+        context: context,
+        title: 'Erreur',
+        message: 'Erreur lors de la modification du favori.',
       );
     } finally {
       if (mounted) {
@@ -190,11 +295,10 @@ class _LogementListScreenState extends State<LogementListScreen> {
     if (result == true) {
       rechargerLogements();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Logement ajouté avec succès !'),
-          backgroundColor: Colors.green,
-        ),
+      await CustomPopup.showSuccessPopup(
+        context: context,
+        title: 'Logement ajouté',
+        message: 'Votre logement a été ajouté avec succès !',
       );
     }
   }
@@ -218,22 +322,38 @@ class _LogementListScreenState extends State<LogementListScreen> {
     }).toList();
 
     if (ordrePrix == 1) {
-      resultat.sort((a, b) => a.prix.compareTo(b.prix));
+      resultat.sort(
+        (a, b) => a.prix.compareTo(b.prix),
+      );
     } else if (ordrePrix == 2) {
-      resultat.sort((a, b) => b.prix.compareTo(a.prix));
+      resultat.sort(
+        (a, b) => b.prix.compareTo(a.prix),
+      );
     }
 
     return resultat;
   }
 
-  void retournerLogin() {
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const LoginScreen(),
-      ),
-      (route) => false,
+  Future<void> retournerLogin() async {
+    final confirmer = await CustomPopup.showConfirmPopup(
+      context: context,
+      title: 'Déconnexion',
+      message: 'Voulez-vous vraiment vous déconnecter ?',
+      confirmText: 'Déconnexion',
+      cancelText: 'Annuler',
     );
+
+    if (confirmer) {
+      if (!mounted) return;
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const LoginScreen(),
+        ),
+        (route) => false,
+      );
+    }
   }
 
   @override
@@ -270,23 +390,20 @@ class _LogementListScreenState extends State<LogementListScreen> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => const MesReservationsScreen(),
+                    builder: (_) =>
+                        const MesReservationsScreen(),
                   ),
                 );
               },
             ),
-IconButton(
-  tooltip: 'Mes conversations',
-  icon: const Icon(Icons.chat_bubble_outline),
-  onPressed: () {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const ConversationsScreen(),
-      ),
-    );
-  },
-),
+
+          // Messagerie avec compteur de messages non lus.
+          IconButton(
+            tooltip: 'Mes conversations',
+            icon: construireIconeMessagerie(),
+            onPressed: ouvrirConversations,
+          ),
+
           if (!isProprietaire)
             IconButton(
               tooltip: 'Mes favoris',
@@ -298,11 +415,13 @@ IconButton(
                 await Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => const MesFavorisScreen(),
+                    builder: (_) =>
+                        const MesFavorisScreen(),
                   ),
                 );
 
                 if (!mounted) return;
+
                 await chargerFavoris();
               },
             ),
@@ -343,9 +462,12 @@ IconButton(
       body: FutureBuilder<List<Logement>>(
         future: logementsFuture,
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (snapshot.connectionState ==
+              ConnectionState.waiting) {
             return const Center(
-              child: CircularProgressIndicator(color: violet),
+              child: CircularProgressIndicator(
+                color: violet,
+              ),
             );
           }
 
@@ -390,8 +512,11 @@ IconButton(
 
           final prix = data.map((e) => e.prix).toList();
 
-          final minPrix = prix.reduce((a, b) => a < b ? a : b);
-          final maxPrix = prix.reduce((a, b) => a > b ? a : b);
+          final minPrix =
+              prix.reduce((a, b) => a < b ? a : b);
+
+          final maxPrix =
+              prix.reduce((a, b) => a > b ? a : b);
 
           final sliderMax =
               maxPrix == minPrix ? minPrix + 1 : maxPrix;
@@ -424,14 +549,16 @@ IconButton(
                         filled: true,
                         fillColor: Colors.white,
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius:
+                              BorderRadius.circular(14),
                           borderSide: BorderSide.none,
                         ),
                       ),
                     );
 
                     final filtreWidget = Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                      crossAxisAlignment:
+                          CrossAxisAlignment.end,
                       children: [
                         const Text(
                           'Prix (DT)',
@@ -444,7 +571,8 @@ IconButton(
                           values: range,
                           min: minPrix,
                           max: sliderMax,
-                          divisions: sliderMax > minPrix ? 100 : null,
+                          divisions:
+                              sliderMax > minPrix ? 100 : null,
                           activeColor: violet,
                           labels: RangeLabels(
                             range.start.toStringAsFixed(0),
@@ -466,9 +594,12 @@ IconButton(
 
                     if (constraints.maxWidth >= 600) {
                       return Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
+                        crossAxisAlignment:
+                            CrossAxisAlignment.center,
                         children: [
-                          Expanded(child: rechercheWidget),
+                          Expanded(
+                            child: rechercheWidget,
+                          ),
                           const SizedBox(width: 20),
                           SizedBox(
                             width: 230,
@@ -496,7 +627,8 @@ IconButton(
               ),
 
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
                   children: [
                     Text(
@@ -550,7 +682,8 @@ IconButton(
                         ),
                         itemCount: logementsFiltres.length,
                         itemBuilder: (context, index) {
-                          final logement = logementsFiltres[index];
+                          final logement =
+                              logementsFiltres[index];
 
                           final estFavori =
                               favoris.containsKey(logement.id);
@@ -565,12 +698,14 @@ IconButton(
                               vertical: 7,
                             ),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius:
+                                  BorderRadius.circular(16),
                             ),
                             child: Stack(
                               children: [
                                 InkWell(
-                                  borderRadius: BorderRadius.circular(16),
+                                  borderRadius:
+                                      BorderRadius.circular(16),
                                   onTap: () async {
                                     final result =
                                         await Navigator.push<bool>(
@@ -592,7 +727,8 @@ IconButton(
                                     }
                                   },
                                   child: Padding(
-                                    padding: const EdgeInsets.fromLTRB(
+                                    padding:
+                                        const EdgeInsets.fromLTRB(
                                       15,
                                       15,
                                       55,
@@ -603,10 +739,15 @@ IconButton(
                                         Container(
                                           width: 52,
                                           height: 52,
-                                          decoration: BoxDecoration(
-                                            color: violet.withOpacity(0.10),
+                                          decoration:
+                                              BoxDecoration(
+                                            color: violet.withOpacity(
+                                              0.10,
+                                            ),
                                             borderRadius:
-                                                BorderRadius.circular(12),
+                                                BorderRadius.circular(
+                                              12,
+                                            ),
                                           ),
                                           child: const Icon(
                                             Icons.home_outlined,
@@ -623,24 +764,29 @@ IconButton(
                                             children: [
                                               Text(
                                                 logement.titre,
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.bold,
+                                                style:
+                                                    const TextStyle(
+                                                  fontWeight:
+                                                      FontWeight.bold,
                                                   fontSize: 15,
                                                 ),
                                               ),
                                               const SizedBox(height: 6),
                                               Text(
                                                 logement.adresse,
-                                                style: const TextStyle(
+                                                style:
+                                                    const TextStyle(
                                                   color: Colors.black54,
                                                 ),
                                               ),
                                               const SizedBox(height: 8),
                                               Text(
                                                 '${logement.prix.toStringAsFixed(0)} DT',
-                                                style: const TextStyle(
+                                                style:
+                                                    const TextStyle(
                                                   color: violet,
-                                                  fontWeight: FontWeight.bold,
+                                                  fontWeight:
+                                                      FontWeight.bold,
                                                 ),
                                               ),
                                             ],
@@ -651,7 +797,7 @@ IconButton(
                                   ),
                                 ),
 
-                                // Petit cœur en haut à droite.
+                                // Bouton favori.
                                 if (!isProprietaire)
                                   Positioned(
                                     top: 4,
@@ -662,12 +808,15 @@ IconButton(
                                           : 'Ajouter aux favoris',
                                       onPressed: chargement
                                           ? null
-                                          : () => toggleFavori(logement.id),
+                                          : () => toggleFavori(
+                                                logement.id,
+                                              ),
                                       icon: chargement
                                           ? const SizedBox(
                                               width: 20,
                                               height: 20,
-                                              child: CircularProgressIndicator(
+                                              child:
+                                                  CircularProgressIndicator(
                                                 strokeWidth: 2,
                                               ),
                                             )

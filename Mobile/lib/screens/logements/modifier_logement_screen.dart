@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../services/logement_service.dart';
 import '../../models/logement.dart';
+import '../../widgets/custom_popup.dart';
 
 class ModifierLogementScreen extends StatefulWidget {
   final Logement logement;
@@ -79,21 +80,34 @@ class _ModifierLogementScreenState
       if (!mounted) return;
 
       if (success) {
+        await CustomPopup.showSuccessPopup(
+          context: context,
+          title: 'Modification réussie',
+          message: 'Votre logement a été modifié avec succès !',
+        );
+
+        if (!mounted) return;
+
         Navigator.pop(context, true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Erreur lors de la modification'),
-            backgroundColor: Colors.red,
-          ),
+        await CustomPopup.showErrorPopup(
+          context: context,
+          title: 'Modification impossible',
+          message:
+              'Une erreur est survenue lors de la modification du logement.',
         );
       }
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur : $e')),
+      await CustomPopup.showErrorPopup(
+        context: context,
+        title: 'Erreur',
+        message:
+            'Impossible de modifier le logement. Veuillez réessayer.',
       );
+
+      debugPrint('Erreur modification logement : $e');
     } finally {
       if (mounted) {
         setState(() {

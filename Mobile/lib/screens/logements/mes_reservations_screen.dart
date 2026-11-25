@@ -1,6 +1,10 @@
+
 import 'package:flutter/material.dart';
+
 import '../../services/reservation_service.dart';
 import '../../services/avis_service.dart';
+import '../../widgets/custom_popup.dart';
+
 class MesReservationsScreen extends StatefulWidget {
   const MesReservationsScreen({super.key});
 
@@ -11,7 +15,6 @@ class MesReservationsScreen extends StatefulWidget {
 
 class _MesReservationsScreenState
     extends State<MesReservationsScreen> {
-
   static const violet = Color(0xFF6C4AB6);
 
   late Future<List<Map<String, dynamic>>>
@@ -40,13 +43,10 @@ class _MesReservationsScreenState
     switch (statut) {
       case 'acceptee':
         return Colors.green;
-
       case 'refusee':
         return Colors.red;
-
       case 'annulee':
         return Colors.grey;
-
       default:
         return Colors.orange;
     }
@@ -56,21 +56,19 @@ class _MesReservationsScreenState
     switch (statut) {
       case 'acceptee':
         return 'Acceptée';
-
       case 'refusee':
         return 'Refusée';
-
       case 'annulee':
         return 'Annulée';
-
       default:
         return 'En attente';
     }
   }
 
   Widget afficherInformation(
-      IconData icon,
-      String texte) {
+    IconData icon,
+    String texte,
+  ) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -89,9 +87,77 @@ class _MesReservationsScreenState
     );
   }
 
-  Widget carteReservation(
-      Map<String, dynamic> reservation) {
+  // ANNULER UNE RÉSERVATION
+  Future<void> annulerReservation(
+    Map<String, dynamic> reservation,
+  ) async {
+    final confirmer =
+        await CustomPopup.showConfirmPopup(
+      context: context,
+      title: 'Annuler la réservation ?',
+      message:
+          'Voulez-vous vraiment annuler cette réservation ?',
+      confirmText: 'Oui, annuler',
+      cancelText: 'Garder',
+    );
 
+    if (!confirmer || !mounted) return;
+
+    try {
+      final id = reservation['id'];
+
+      final reservationId = id is num
+          ? id.toInt()
+          : int.tryParse(id.toString());
+
+      if (reservationId == null) {
+        throw Exception('Identifiant de réservation invalide.');
+      }
+
+      final success =
+          await ReservationService.updateStatut(
+        reservationId: reservationId,
+        statut: 'annulee',
+      );
+
+      if (!mounted) return;
+
+      if (success) {
+        await CustomPopup.showSuccessPopup(
+          context: context,
+          title: 'Réservation annulée',
+          message:
+              'Votre réservation a été annulée avec succès.',
+        );
+
+        if (!mounted) return;
+
+        await actualiser();
+      } else {
+        await CustomPopup.showErrorPopup(
+          context: context,
+          title: 'Annulation impossible',
+          message:
+              'Impossible d’annuler cette réservation. Veuillez réessayer.',
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      await CustomPopup.showErrorPopup(
+        context: context,
+        title: 'Erreur',
+        message:
+            'Une erreur est survenue lors de l’annulation de la réservation.',
+      );
+
+      debugPrint('Erreur annulation réservation : $e');
+    }
+  }
+
+  Widget carteReservation(
+    Map<String, dynamic> reservation,
+  ) {
     final statut =
         reservation['statut']?.toString() ??
             'en_attente';
@@ -100,19 +166,15 @@ class _MesReservationsScreenState
       margin: const EdgeInsets.only(bottom: 15),
       elevation: 2,
       shape: RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-
             Text(
-              reservation['logement_titre']
-                      ?.toString() ??
+              reservation['logement_titre']?.toString() ??
                   'Logement',
               style: const TextStyle(
                 fontSize: 19,
@@ -167,24 +229,20 @@ class _MesReservationsScreenState
                 ),
 
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(
+                  padding: const EdgeInsets.symmetric(
                     horizontal: 13,
                     vertical: 7,
                   ),
                   decoration: BoxDecoration(
                     color: couleurStatut(statut)
                         .withOpacity(0.12),
-                    borderRadius:
-                        BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
                     texteStatut(statut),
                     style: TextStyle(
-                      color:
-                          couleurStatut(statut),
-                      fontWeight:
-                          FontWeight.bold,
+                      color: couleurStatut(statut),
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
@@ -193,23 +251,23 @@ class _MesReservationsScreenState
 
             const SizedBox(height: 15),
 
-if (statut == 'acceptee')
-  SizedBox(
-    width: double.infinity,
-    child: ElevatedButton.icon(
-      onPressed: () => donnerAvis(reservation),
-      icon: const Icon(Icons.star),
-      label: const Text('Donner mon avis'),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.amber,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.all(14),
-      ),
-    ),
-  ),
+            if (statut == 'acceptee')
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => donnerAvis(reservation),
+                  icon: const Icon(Icons.star),
+                  label: const Text('Donner mon avis'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.amber,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.all(14),
+                  ),
+                ),
+              ),
 
-if (statut == 'acceptee')
-  const SizedBox(height: 10),
+            if (statut == 'acceptee')
+              const SizedBox(height: 10),
 
             if (statut == 'en_attente')
               SizedBox(
@@ -220,89 +278,10 @@ if (statut == 'acceptee')
                     backgroundColor: Colors.red,
                     foregroundColor: Colors.white,
                   ),
-                  onPressed: () async {
-
-                    final confirmer =
-                        await showDialog(
-                      context: context,
-                      builder: (context) =>
-                          AlertDialog(
-                        title: const Text(
-                          "Confirmation",
-                        ),
-                        content: const Text(
-                          "Voulez-vous annuler cette réservation ?",
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () {
-                              Navigator.pop(
-                                context,
-                                false,
-                              );
-                            },
-                            child: const Text(
-                              "Non",
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              Navigator.pop(
-                                context,
-                                true,
-                              );
-                            },
-                            child: const Text(
-                              "Oui",
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-
-                    if (confirmer != true) {
-                      return;
-                    }
-
-                    bool success =
-                        await ReservationService
-                            .updateStatut(
-                      reservationId:
-                          reservation['id'],
-                      statut: 'annulee',
-                    );
-
-                    if (!mounted) return;
-
-                    if (success) {
-
-                      ScaffoldMessenger.of(
-                              context)
-                          .showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            "Réservation annulée ✅",
-                          ),
-                        ),
-                      );
-
-                      actualiser();
-
-                    } else {
-
-                      ScaffoldMessenger.of(
-                              context)
-                          .showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            "Erreur lors de l'annulation ❌",
-                          ),
-                        ),
-                      );
-                    }
-                  },
+                  onPressed: () =>
+                      annulerReservation(reservation),
                   label: const Text(
-                    "Annuler la réservation",
+                    'Annuler la réservation',
                   ),
                 ),
               ),
@@ -312,11 +291,13 @@ if (statut == 'acceptee')
     );
   }
 
+  // DONNER UN AVIS
   Future<void> donnerAvis(
     Map<String, dynamic> reservation,
   ) async {
     int note = 5;
-    final commentaireController = TextEditingController();
+    final commentaireController =
+        TextEditingController();
 
     final confirmer = await showDialog<bool>(
       context: context,
@@ -329,11 +310,15 @@ if (statut == 'acceptee')
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('Quelle note donnez-vous ?'),
+                    const Text(
+                      'Quelle note donnez-vous ?',
+                    ),
+
                     const SizedBox(height: 12),
 
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisAlignment:
+                          MainAxisAlignment.center,
                       children: List.generate(5, (index) {
                         return IconButton(
                           onPressed: () {
@@ -360,7 +345,8 @@ if (statut == 'acceptee')
                       maxLength: 500,
                       decoration: const InputDecoration(
                         labelText: 'Votre commentaire',
-                        hintText: 'Ex : Très bon logement...',
+                        hintText:
+                            'Ex : Très bon logement...',
                         border: OutlineInputBorder(),
                       ),
                     ),
@@ -374,6 +360,7 @@ if (statut == 'acceptee')
                   },
                   child: const Text('Annuler'),
                 ),
+
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: violet,
@@ -397,52 +384,65 @@ if (statut == 'acceptee')
     }
 
     try {
+      final id = reservation['id'];
+
+      final reservationId = id is num
+          ? id.toInt()
+          : int.tryParse(id.toString());
+
+      if (reservationId == null) {
+        throw Exception('Identifiant de réservation invalide.');
+      }
+
       await AvisService.ajouterAvis(
-        reservationId: reservation['id'] as int,
+        reservationId: reservationId,
         note: note,
-        commentaire: commentaireController.text.trim(),
+        commentaire:
+            commentaireController.text.trim(),
       );
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Votre avis a été publié !'),
-          backgroundColor: Colors.green,
-        ),
+      await CustomPopup.showSuccessPopup(
+        context: context,
+        title: 'Avis publié',
+        message:
+            'Merci ! Votre avis a été publié avec succès.',
       );
 
-      actualiser();
+      if (!mounted) return;
+
+      await actualiser();
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Impossible de publier l’avis : $e'),
-          backgroundColor: Colors.red,
-        ),
+      await CustomPopup.showErrorPopup(
+        context: context,
+        title: 'Publication impossible',
+        message:
+            'Une erreur est survenue lors de la publication de votre avis. Veuillez réessayer.',
       );
+
+      debugPrint('Erreur publication avis : $e');
     } finally {
       commentaireController.dispose();
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF7F6FA),
+
       appBar: AppBar(
-        title:
-            const Text('Mes réservations'),
+        title: const Text('Mes réservations'),
         backgroundColor: violet,
         foregroundColor: Colors.white,
       ),
-      body: FutureBuilder<
-          List<Map<String, dynamic>>>(
+
+      body: FutureBuilder<List<Map<String, dynamic>>>(
         future: reservationsFuture,
         builder: (context, snapshot) {
-
           if (snapshot.connectionState ==
               ConnectionState.waiting) {
             return const Center(
@@ -454,14 +454,33 @@ if (statut == 'acceptee')
 
           if (snapshot.hasError) {
             return Center(
-              child: Text(
-                'Erreur : ${snapshot.error}',
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      color: Colors.red,
+                      size: 45,
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Impossible de charger vos réservations.',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 15),
+                    ElevatedButton(
+                      onPressed: actualiser,
+                      child: const Text('Réessayer'),
+                    ),
+                  ],
+                ),
               ),
             );
           }
 
-          final reservations =
-              snapshot.data ?? [];
+          final reservations = snapshot.data ?? [];
 
           if (reservations.isEmpty) {
             return RefreshIndicator(
@@ -488,8 +507,7 @@ if (statut == 'acceptee')
           return RefreshIndicator(
             onRefresh: actualiser,
             child: ListView.builder(
-              padding:
-                  const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
               itemCount: reservations.length,
               itemBuilder: (context, index) {
                 return carteReservation(

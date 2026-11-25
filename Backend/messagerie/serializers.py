@@ -48,11 +48,14 @@ class ConversationSerializer(serializers.ModelSerializer):
 
     visiteur = ParticipantSerializer(read_only=True)
     proprietaire = serializers.SerializerMethodField()
+
     logement_titre = serializers.CharField(
         source='logement.titre',
         read_only=True
     )
+
     dernier_message = serializers.SerializerMethodField()
+    messages_non_lus = serializers.SerializerMethodField()
 
     class Meta:
         model = Conversation
@@ -65,19 +68,36 @@ class ConversationSerializer(serializers.ModelSerializer):
             'date_creation',
             'date_modification',
             'dernier_message',
+            'messages_non_lus',
         ]
         read_only_fields = fields
 
     def get_proprietaire(self, obj):
-        return ParticipantSerializer(obj.logement.proprietaire).data
+        return ParticipantSerializer(
+            obj.logement.proprietaire
+        ).data
 
     def get_dernier_message(self, obj):
-        message = obj.messages.order_by('-date_creation').first()
+        message = obj.messages.order_by(
+            '-date_creation'
+        ).first()
 
         if message:
             return MessageSerializer(message).data
 
         return None
+
+    def get_messages_non_lus(self, obj):
+        request = self.context.get('request')
+
+        if request is None or not request.user.is_authenticated:
+            return 0
+
+        return obj.messages.filter(
+            date_lecture__isnull=True
+        ).exclude(
+            auteur=request.user
+        ).count()
 
 
 class CreateConversationSerializer(serializers.ModelSerializer):

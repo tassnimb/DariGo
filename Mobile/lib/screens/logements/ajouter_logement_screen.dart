@@ -1,6 +1,7 @@
 
 import 'package:flutter/material.dart';
 import '../../services/logement_service.dart';
+import '../../widgets/custom_popup.dart';
 
 class AjouterLogementScreen extends StatefulWidget {
   const AjouterLogementScreen({super.key});
@@ -38,6 +39,11 @@ class _AjouterLogementScreenState
   Future<void> ajouterLogement() async {
 
     if (!_formKey.currentState!.validate()) {
+      await CustomPopup.showWarningPopup(
+        context: context,
+        title: 'Formulaire incomplet',
+        message: 'Veuillez corriger les champs indiqués avant de continuer.',
+      );
       return;
     }
 
@@ -56,26 +62,35 @@ class _AjouterLogementScreenState
       if (!mounted) return;
 
       if (success) {
-        // Retourner à la liste avec confirmation.
+        await CustomPopup.showSuccessPopup(
+          context: context,
+          title: 'Logement ajouté !',
+          message: 'Votre logement a été publié avec succès.',
+        );
+
+        if (!mounted) return;
+
+        // Retourner à la liste après confirmation.
         Navigator.pop(context, true);
+
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Erreur lors de l'ajout du logement"),
-            backgroundColor: Colors.red,
-          ),
+        await CustomPopup.showErrorPopup(
+          context: context,
+          title: 'Échec de publication',
+          message: 'Impossible d’ajouter le logement. Veuillez réessayer.',
         );
       }
 
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Erreur : $e"),
-          backgroundColor: Colors.red,
-        ),
+      await CustomPopup.showErrorPopup(
+        context: context,
+        title: 'Erreur inattendue',
+        message: 'Une erreur est survenue lors de l’ajout du logement. Veuillez réessayer.',
       );
+
+      debugPrint('Erreur ajout logement : $e');
 
     } finally {
       if (mounted) {

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/logement.dart';
 import '../../services/reservation_service.dart';
+import '../../widgets/custom_popup.dart';
 
 class ReservationScreen extends StatefulWidget {
   final Logement logement;
@@ -88,21 +89,20 @@ class _ReservationScreenState extends State<ReservationScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     if (dateArrivee == null || dateDepart == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Veuillez choisir les deux dates.'),
-        ),
+      await CustomPopup.showWarningPopup(
+        context: context,
+        title: 'Dates manquantes',
+        message: 'Veuillez choisir les deux dates.',
       );
       return;
     }
 
     if (!dateDepart!.isAfter(dateArrivee!)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
+      await CustomPopup.showWarningPopup(
+        context: context,
+        title: 'Dates invalides',
+        message:
             'La date de départ doit être après la date d’arrivée.',
-          ),
-        ),
       );
       return;
     }
@@ -123,41 +123,52 @@ class _ReservationScreenState extends State<ReservationScreen> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Réservation envoyée avec succès !'),
-          backgroundColor: Colors.green,
-        ),
+      await CustomPopup.showSuccessPopup(
+        context: context,
+        title: 'Réservation envoyée',
+        message: 'Votre réservation a été envoyée avec succès !',
       );
 
+      if (!mounted) return;
+
       Navigator.pop(context, true);
-  } catch (e) {
-  if (!mounted) return;
+    } catch (e) {
+      if (!mounted) return;
 
-  final erreur = e.toString().toLowerCase();
+      final erreur = e.toString().toLowerCase();
 
-  String message;
+      debugPrint('ERREUR RESERVATION : $e');
 
-  if (erreur.contains('déjà réservé') ||
-      erreur.contains('deja reserve')) {
-    message =
-        'Ce logement n’est pas disponible pour ces dates. '
-        'Veuillez choisir une autre période.';
-  } else {
-    message =
-        'Une erreur est survenue lors de la réservation. '
-        'Veuillez réessayer.';
-  }
+final logementOccupe =
+    erreur.contains('déjà réservé') ||
+    erreur.contains('deja reserve') ||
+    erreur.contains('already reserved') ||
+    erreur.contains('already booked') ||
+    erreur.contains('indisponible') ||
+    erreur.contains('not available') ||
+    erreur.contains('overlap') ||
+    erreur.contains('chevauchement') ||
+    erreur.contains('n\'est pas disponible') ||
+    erreur.contains('pas disponible');
 
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(
-  e.toString().replaceFirst('Exception: ', ''),
-),
-      backgroundColor: Colors.red,
-    ),
-  );
-}finally {
+      if (logementOccupe) {
+        await CustomPopup.showErrorPopup(
+          context: context,
+          title: 'Logement déjà réservé',
+          message:
+              'Ce logement est déjà réservé pour cette période. '
+              'Veuillez choisir d’autres dates.',
+        );
+      } else {
+        await CustomPopup.showErrorPopup(
+          context: context,
+          title: 'Réservation impossible',
+          message:
+              'Une erreur est survenue lors de la réservation. '
+              'Veuillez réessayer.',
+        );
+      }
+    } finally {
       if (mounted) {
         setState(() {
           isLoading = false;

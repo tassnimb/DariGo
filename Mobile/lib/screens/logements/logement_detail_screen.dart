@@ -5,6 +5,7 @@ import '../../models/logement.dart';
 import '../../services/logement_service.dart';
 import '../../services/avis_service.dart';
 import '../../services/messagerie_service.dart';
+import '../../widgets/custom_popup.dart';
 
 import 'modifier_logement_screen.dart';
 import 'reservation_screen.dart';
@@ -68,7 +69,7 @@ class _LogementDetailScreenState
     );
   }
 
-  // Contacter le propriétaire
+  // CONTACTER LE PROPRIÉTAIRE
   Future<void> contacterProprietaire() async {
     if (isContacting) return;
 
@@ -111,12 +112,14 @@ class _LogementDetailScreenState
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur : $e'),
-          backgroundColor: Colors.red,
-        ),
+      await CustomPopup.showErrorPopup(
+        context: context,
+        title: 'Impossible de contacter',
+        message:
+            'Une erreur est survenue lors de l’ouverture de la conversation. Veuillez réessayer.',
       );
+
+      debugPrint('Erreur contact propriétaire : $e');
     } finally {
       if (mounted) {
         setState(() {
@@ -126,34 +129,19 @@ class _LogementDetailScreenState
     }
   }
 
+  // SUPPRIMER UN LOGEMENT
   Future<void> supprimerLogement() async {
-    final confirmer = await showDialog<bool>(
+    final confirmer =
+        await CustomPopup.showConfirmPopup(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Supprimer le logement'),
-        content: const Text(
-          'Voulez-vous vraiment supprimer ce logement ?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () =>
-                Navigator.pop(dialogContext, false),
-            child: const Text('Annuler'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () =>
-                Navigator.pop(dialogContext, true),
-            child: const Text('Supprimer'),
-          ),
-        ],
-      ),
+      title: 'Supprimer le logement ?',
+      message:
+          'Voulez-vous vraiment supprimer ce logement ? Cette action est définitive.',
+      confirmText: 'Supprimer',
+      cancelText: 'Annuler',
     );
 
-    if (confirmer != true || !mounted) return;
+    if (!confirmer || !mounted) return;
 
     setState(() {
       isDeleting = true;
@@ -168,21 +156,34 @@ class _LogementDetailScreenState
       if (!mounted) return;
 
       if (success) {
+        await CustomPopup.showSuccessPopup(
+          context: context,
+          title: 'Logement supprimé',
+          message: 'Votre logement a été supprimé avec succès.',
+        );
+
+        if (!mounted) return;
+
         Navigator.pop(context, true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Erreur lors de la suppression'),
-            backgroundColor: Colors.red,
-          ),
+        await CustomPopup.showErrorPopup(
+          context: context,
+          title: 'Suppression échouée',
+          message:
+              'Impossible de supprimer ce logement. Veuillez réessayer.',
         );
       }
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur : $e')),
+      await CustomPopup.showErrorPopup(
+        context: context,
+        title: 'Erreur de suppression',
+        message:
+            'Une erreur est survenue lors de la suppression du logement.',
       );
+
+      debugPrint('Erreur suppression logement : $e');
     } finally {
       if (mounted) {
         setState(() {
@@ -192,6 +193,7 @@ class _LogementDetailScreenState
     }
   }
 
+  // ÉTOILES DES AVIS
   Widget construireEtoiles(double note) {
     return Row(
       children: List.generate(5, (index) {
@@ -206,6 +208,7 @@ class _LogementDetailScreenState
     );
   }
 
+  // AFFICHER LES AVIS
   Widget afficherAvis() {
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: avisFuture,
@@ -218,9 +221,27 @@ class _LogementDetailScreenState
         }
 
         if (snapshot.hasError) {
-          return const Text(
-            'Impossible de charger les avis.',
-            style: TextStyle(color: Colors.red),
+          return Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.red.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Row(
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  color: Colors.red,
+                ),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Impossible de charger les avis. Veuillez réessayer plus tard.',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                ),
+              ],
+            ),
           );
         }
 
@@ -333,13 +354,16 @@ class _LogementDetailScreenState
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F6FA),
+
       appBar: AppBar(
         title: const Text('Détail du logement'),
         backgroundColor: violet,
         foregroundColor: Colors.white,
       ),
+
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(18),
+
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -391,7 +415,7 @@ class _LogementDetailScreenState
               padding: const EdgeInsets.all(16),
               width: double.infinity,
               decoration: BoxDecoration(
-                color: violet.withOpacity(0.10),
+                color: violet.withValues(alpha: 0.10),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Text(
@@ -438,7 +462,7 @@ class _LogementDetailScreenState
 
             afficherAvis(),
 
-            // Boutons du visiteur
+            // BOUTONS DU VISITEUR
             if (!widget.isProprietaire) ...[
               const SizedBox(height: 30),
 
@@ -490,7 +514,7 @@ class _LogementDetailScreenState
               ),
             ],
 
-            // Boutons du propriétaire
+            // BOUTONS DU PROPRIÉTAIRE
             if (widget.isProprietaire) ...[
               const SizedBox(height: 30),
 
