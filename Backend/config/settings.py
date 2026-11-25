@@ -144,10 +144,18 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
+# Fichiers statiques
 STATIC_URL = 'static/'
-#///////////////////////////////////////////////////////////////////////////////////////////////////
+
+# Photos et fichiers envoyés par les utilisateurs
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# Configuration utilisateur
 AUTH_USER_MODEL = 'users.User'
+
 CORS_ALLOW_ALL_ORIGINS = True
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',

@@ -1,12 +1,17 @@
 
+import json
+
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 
 from rest_framework import generics, permissions
 from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from rest_framework.response import Response
 
 from .models import (
     Logement,
+    PhotoLogement,
     Reservation,
     Favori,
     Avis,
@@ -21,14 +26,20 @@ from .serializers import (
 )
 
 
-# =====================================
+# ==========================================
 # LOGEMENTS
-# =====================================
+# ==========================================
 
 class LogementListCreateView(generics.ListCreateAPIView):
 
     serializer_class = LogementSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    parser_classes = [
+        MultiPartParser,
+        FormParser,
+        JSONParser,
+    ]
 
     def get_queryset(self):
 
@@ -37,15 +48,29 @@ class LogementListCreateView(generics.ListCreateAPIView):
         if user.role == 'proprietaire':
             return Logement.objects.filter(
                 proprietaire=user
-            )
+            ).prefetch_related('photos')
 
-        return Logement.objects.all()
+        return Logement.objects.all().prefetch_related('photos')
 
+    @transaction.atomic
     def perform_create(self, serializer):
 
-        serializer.save(
+        photos = self.request.FILES.getlist('photos')
+
+        if len(photos) > 10:
+            raise ValidationError(
+                "Vous pouvez ajouter au maximum 10 photos."
+            )
+
+        logement = serializer.save(
             proprietaire=self.request.user
         )
+
+        for photo in photos:
+            PhotoLogement.objects.create(
+                logement=logement,
+                image=photo
+            )
 
 
 class LogementRetrieveUpdateDeleteView(
@@ -54,12 +79,115 @@ class LogementRetrieveUpdateDeleteView(
 
     serializer_class = LogementSerializer
     permission_classes = [permissions.IsAuthenticated]
-    queryset = Logement.objects.all()
+
+    parser_classes = [
+        MultiPartParser,
+        FormParser,
+        JSONParser,
+    ]
+
+    queryset = Logement.objects.all().prefetch_related('photos')
+
+    def update(self, request, *args, **kwargs):
+
+        logement = self.get_object()
+
+        if logement.proprietaire != request.user:
+            raise PermissionDenied(
+                "Vous ne pouvez modifier que vos propres logements."
+            )
+
+        try:
+            photos_a_supprimer = json.loads(
+                request.data.get('photos_a_supprimer', '[]')
+            )
+        except (TypeError, ValueError):
+            raise ValidationError(
+                "Liste de photos à supprimer invalide."
+            )
+
+        if not isinstance(photos_a_supprimer, list):
+            raise ValidationError(
+                "Liste de photos invalide."
+            )
+
+        photos_existantes = PhotoLogement.objects.filter(
+            logement=logement
+        )
+
+        ids_existants = set(
+            photos_existantes.values_list('id', flat=True)
+        )
+
+        try:
+            ids_a_supprimer = {
+                int(photo_id) for photo_id in photos_a_supprimer
+            }
+        except (TypeError, ValueError):
+            raise ValidationError(
+                "Identifiant de photo invalide."
+            )
+
+        if not ids_a_supprimer.issubset(ids_existants):
+            raise ValidationError(
+                "Une ou plusieurs photos sont invalides."
+            )
+
+        nouvelles_photos = request.FILES.getlist('photos')
+
+        nombre_restant = (
+            photos_existantes.exclude(
+                id__in=ids_a_supprimer
+            ).count()
+        )
+
+        if nombre_restant + len(nouvelles_photos) > 10:
+            raise ValidationError(
+                "Vous pouvez conserver ou ajouter au maximum 10 photos."
+            )
+
+        with transaction.atomic():
+
+            serializer = self.get_serializer(
+                logement,
+                data=request.data,
+                partial=True
+            )
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+
+            for photo in photos_existantes.filter(
+                id__in=ids_a_supprimer
+            ):
+                photo.image.delete(save=False)
+                photo.delete()
+
+            for photo in nouvelles_photos:
+                PhotoLogement.objects.create(
+                    logement=logement,
+                    image=photo
+                )
+
+        return Response(
+            LogementSerializer(logement).data,
+            status=200
+        )
+
+    def destroy(self, request, *args, **kwargs):
+
+        logement = self.get_object()
+
+        if logement.proprietaire != request.user:
+            raise PermissionDenied(
+                "Vous ne pouvez supprimer que vos propres logements."
+            )
+
+        return super().destroy(request, *args, **kwargs)
 
 
-# =====================================
+# ==========================================
 # RESERVATIONS
-# =====================================
+# ==========================================
 
 class ReservationListCreateView(generics.ListCreateAPIView):
 
@@ -92,7 +220,6 @@ class ReservationListCreateView(generics.ListCreateAPIView):
 
         logement_id = serializer.validated_data['logement'].pk
 
-        # Verrouiller le logement pour éviter les demandes simultanées
         logement = Logement.objects.select_for_update().get(
             pk=logement_id
         )
@@ -100,7 +227,6 @@ class ReservationListCreateView(generics.ListCreateAPIView):
         date_arrivee = serializer.validated_data['date_arrivee']
         date_depart = serializer.validated_data['date_depart']
 
-        # Nouvelle vérification après le verrouillage
         conflit = Reservation.objects.filter(
             logement=logement,
             statut__in=['en_attente', 'acceptee'],
@@ -151,7 +277,6 @@ class ReservationDetailView(generics.RetrieveUpdateAPIView):
 
         reservation = self.get_object()
 
-        # Propriétaire : accepte ou refuse
         if request.user.role == 'proprietaire':
 
             if request.data.get('statut') not in [
@@ -168,7 +293,6 @@ class ReservationDetailView(generics.RetrieveUpdateAPIView):
                 **kwargs,
             )
 
-        # Visiteur : annule uniquement sa réservation
         if request.user.role == 'visiteur':
 
             if (
@@ -197,13 +321,10 @@ class ReservationDetailView(generics.RetrieveUpdateAPIView):
 
         if nouveau_statut == 'acceptee':
 
-            # Verrouiller le logement avant de vérifier
             logement = Logement.objects.select_for_update().get(
                 pk=reservation.logement_id
             )
 
-            # Une autre réservation acceptée ne doit pas
-            # occuper les mêmes dates
             conflit = Reservation.objects.filter(
                 logement=logement,
                 statut='acceptee',
@@ -222,9 +343,9 @@ class ReservationDetailView(generics.RetrieveUpdateAPIView):
         serializer.save()
 
 
-# =====================================
+# ==========================================
 # FAVORIS
-# =====================================
+# ==========================================
 
 class FavoriListCreateView(generics.ListCreateAPIView):
 
@@ -256,9 +377,9 @@ class FavoriDeleteView(generics.DestroyAPIView):
         )
 
 
-# =====================================
+# ==========================================
 # AVIS
-# =====================================
+# ==========================================
 
 class AvisLogementListView(generics.ListAPIView):
 

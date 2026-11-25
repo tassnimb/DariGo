@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -34,6 +33,7 @@ class _LogementListScreenState extends State<LogementListScreen> {
 
   String role = '';
   String recherche = '';
+  String? profilePhotoUrl;
 
   RangeValues? selectedRange;
   int ordrePrix = 0;
@@ -59,7 +59,7 @@ class _LogementListScreenState extends State<LogementListScreen> {
     chargerMessagesNonLus();
   }
 
-  // Charger le rôle de l'utilisateur.
+  // Charger le rôle et la photo de profil.
   Future<void> chargerRole() async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -68,8 +68,11 @@ class _LogementListScreenState extends State<LogementListScreen> {
     final nouveauRole =
         (prefs.getString('role') ?? '').toLowerCase();
 
+    final photo = prefs.getString('profile_photo');
+
     setState(() {
       role = nouveauRole;
+      profilePhotoUrl = photo;
     });
 
     if (nouveauRole != 'proprietaire') {
@@ -121,7 +124,6 @@ class _LogementListScreenState extends State<LogementListScreen> {
           size: 27,
           color: Colors.white,
         ),
-
         if (totalMessagesNonLus > 0)
           Positioned(
             right: -9,
@@ -254,7 +256,8 @@ class _LogementListScreenState extends State<LogementListScreen> {
           await CustomPopup.showSuccessPopup(
             context: context,
             title: 'Favoris',
-            message: 'Logement ajouté aux favoris avec succès !',
+            message:
+                'Logement ajouté aux favoris avec succès !',
           );
         }
       }
@@ -264,7 +267,8 @@ class _LogementListScreenState extends State<LogementListScreen> {
       await CustomPopup.showErrorPopup(
         context: context,
         title: 'Erreur',
-        message: 'Erreur lors de la modification du favori.',
+        message:
+            'Erreur lors de la modification du favori.',
       );
     } finally {
       if (mounted) {
@@ -282,6 +286,7 @@ class _LogementListScreenState extends State<LogementListScreen> {
     });
   }
 
+  // Ouvrir l'écran d'ajout d'un logement.
   Future<void> ouvrirAjout() async {
     final result = await Navigator.push<bool>(
       context,
@@ -298,11 +303,13 @@ class _LogementListScreenState extends State<LogementListScreen> {
       await CustomPopup.showSuccessPopup(
         context: context,
         title: 'Logement ajouté',
-        message: 'Votre logement a été ajouté avec succès !',
+        message:
+            'Votre logement a été ajouté avec succès !',
       );
     }
   }
 
+  // Filtrer et trier les logements.
   List<Logement> filtrerLogements(
     List<Logement> data,
     RangeValues range,
@@ -334,6 +341,7 @@ class _LogementListScreenState extends State<LogementListScreen> {
     return resultat;
   }
 
+  // Confirmer la déconnexion.
   Future<void> retournerLogin() async {
     final confirmer = await CustomPopup.showConfirmPopup(
       context: context,
@@ -441,6 +449,39 @@ class _LogementListScreenState extends State<LogementListScreen> {
               },
             ),
 
+          // Photo de profil.
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: CircleAvatar(
+              radius: 18,
+              backgroundColor: Colors.white,
+              child: ClipOval(
+                child: profilePhotoUrl != null &&
+                        profilePhotoUrl!.isNotEmpty
+                    ? Image.network(
+                        profilePhotoUrl!,
+                        width: 36,
+                        height: 36,
+                        fit: BoxFit.cover,
+                        errorBuilder:
+                            (context, error, stackTrace) {
+                          return const Icon(
+                            Icons.person,
+                            color: violet,
+                            size: 25,
+                          );
+                        },
+                      )
+                    : const Icon(
+                        Icons.person,
+                        color: violet,
+                        size: 25,
+                      ),
+              ),
+            ),
+          ),
+
+          // Déconnexion.
           IconButton(
             tooltip: 'Déconnexion',
             onPressed: retournerLogin,
@@ -541,7 +582,8 @@ class _LogementListScreenState extends State<LogementListScreen> {
                         });
                       },
                       decoration: InputDecoration(
-                        hintText: 'Rechercher un logement...',
+                        hintText:
+                            'Rechercher un logement...',
                         prefixIcon: const Icon(
                           Icons.search,
                           color: violet,
@@ -587,7 +629,8 @@ class _LogementListScreenState extends State<LogementListScreen> {
                         Text(
                           '${range.start.toStringAsFixed(0)} - '
                           '${range.end.toStringAsFixed(0)} DT',
-                          style: const TextStyle(fontSize: 12),
+                          style:
+                              const TextStyle(fontSize: 12),
                         ),
                       ],
                     );
@@ -627,8 +670,9 @@ class _LogementListScreenState extends State<LogementListScreen> {
               ),
 
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                ),
                 child: Row(
                   children: [
                     Text(
@@ -736,25 +780,11 @@ class _LogementListScreenState extends State<LogementListScreen> {
                                     ),
                                     child: Row(
                                       children: [
-                                        Container(
-                                          width: 52,
-                                          height: 52,
-                                          decoration:
-                                              BoxDecoration(
-                                            color: violet.withOpacity(
-                                              0.10,
-                                            ),
-                                            borderRadius:
-                                                BorderRadius.circular(
-                                              12,
-                                            ),
-                                          ),
-                                          child: const Icon(
-                                            Icons.home_outlined,
-                                            color: violet,
-                                            size: 30,
-                                          ),
+                                        // Galerie photos du logement.
+                                        _PhotosLogement(
+                                          photos: logement.photos,
                                         ),
+
                                         const SizedBox(width: 12),
 
                                         Expanded(
@@ -840,6 +870,157 @@ class _LogementListScreenState extends State<LogementListScreen> {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+// ======================================================
+// WIDGET GALERIE PHOTOS
+// ======================================================
+
+class _PhotosLogement extends StatefulWidget {
+  final List<String> photos;
+
+  const _PhotosLogement({
+    required this.photos,
+  });
+
+  @override
+  State<_PhotosLogement> createState() =>
+      _PhotosLogementState();
+}
+
+class _PhotosLogementState extends State<_PhotosLogement> {
+  int photoActuelle = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    const violet = Color(0xFF6C4AB6);
+
+    if (widget.photos.isEmpty) {
+      return Container(
+        width: 125,
+        height: 110,
+        decoration: BoxDecoration(
+          color: violet.withOpacity(0.10),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Icon(
+          Icons.home_outlined,
+          color: violet,
+          size: 40,
+        ),
+      );
+    }
+
+    return SizedBox(
+      width: 125,
+      height: 110,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Stack(
+          children: [
+            PageView.builder(
+              itemCount: widget.photos.length,
+              onPageChanged: (index) {
+                setState(() {
+                  photoActuelle = index;
+                });
+              },
+              itemBuilder: (context, index) {
+                return Image.network(
+                  widget.photos[index],
+                  width: 125,
+                  height: 110,
+                  fit: BoxFit.cover,
+                  loadingBuilder:
+                      (context, child, loadingProgress) {
+                    if (loadingProgress == null) {
+                      return child;
+                    }
+
+                    return Container(
+                      color: violet.withOpacity(0.10),
+                      child: const Center(
+                        child: CircularProgressIndicator(
+                          color: violet,
+                          strokeWidth: 2,
+                        ),
+                      ),
+                    );
+                  },
+                  errorBuilder:
+                      (context, error, stackTrace) {
+                    return Container(
+                      color: violet.withOpacity(0.10),
+                      child: const Icon(
+                        Icons.broken_image_outlined,
+                        color: violet,
+                        size: 35,
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+
+            // Indicateurs des photos.
+            if (widget.photos.length > 1)
+              Positioned(
+                bottom: 6,
+                left: 0,
+                right: 0,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(
+                    widget.photos.length,
+                    (index) {
+                      return Container(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 2,
+                        ),
+                        width: photoActuelle == index ? 8 : 5,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: photoActuelle == index
+                              ? Colors.white
+                              : Colors.white.withOpacity(0.55),
+                          borderRadius:
+                              BorderRadius.circular(10),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+
+            // Nombre de photos.
+            if (widget.photos.length > 1)
+              Positioned(
+                top: 5,
+                right: 5,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${photoActuelle + 1}/${widget.photos.length}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

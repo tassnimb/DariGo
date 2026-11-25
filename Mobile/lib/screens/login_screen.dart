@@ -1,6 +1,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../widgets/custom_popup.dart';
 import '../services/api_service.dart';
 import 'register_screen.dart';
@@ -61,6 +62,9 @@ class _LoginScreenState extends State<LoginScreen> {
       final String access = result['access'] ?? '';
       final String refresh = result['refresh'] ?? '';
 
+      final String profilePhoto =
+          (result['profile_photo'] ?? '').toString();
+
       if (access.isEmpty || refresh.isEmpty) {
         throw Exception(
           "Les jetons d'authentification sont absents.",
@@ -74,9 +78,33 @@ class _LoginScreenState extends State<LoginScreen> {
       await prefs.setString('refresh', refresh);
       await prefs.setString('role', role);
 
+      // Enregistrer l'URL de la photo de profil
+      if (profilePhoto.isNotEmpty) {
+        String photoUrl;
+
+        if (profilePhoto.startsWith('http')) {
+          photoUrl = profilePhoto;
+        } else {
+          photoUrl =
+              'http://127.0.0.1:8000${profilePhoto.startsWith('/') ? '' : '/'}$profilePhoto';
+        }
+
+        await prefs.setString('profile_photo', photoUrl);
+      } else {
+        await prefs.remove('profile_photo');
+      }
+
       if (!mounted) return;
 
       if (role == 'proprietaire' || role == 'visiteur') {
+        await CustomPopup.showSuccessPopup(
+          context: context,
+          title: 'Connexion réussie',
+          message: 'Bienvenue sur DariGo !',
+        );
+
+        if (!mounted) return;
+
         // Redirection après connexion
         Navigator.pushReplacement(
           context,

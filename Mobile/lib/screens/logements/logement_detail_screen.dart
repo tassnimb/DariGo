@@ -131,12 +131,10 @@ class _LogementDetailScreenState
 
   // SUPPRIMER UN LOGEMENT
   Future<void> supprimerLogement() async {
-    final confirmer =
-        await CustomPopup.showConfirmPopup(
+    final confirmer = await CustomPopup.showConfirmPopup(
       context: context,
-      title: 'Supprimer le logement ?',
-      message:
-          'Voulez-vous vraiment supprimer ce logement ? Cette action est définitive.',
+      title: 'Supprimer le logement',
+      message: 'Voulez-vous vraiment supprimer ce logement ?',
       confirmText: 'Supprimer',
       cancelText: 'Annuler',
     );
@@ -367,19 +365,7 @@ class _LogementDetailScreenState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: double.infinity,
-              height: 190,
-              decoration: BoxDecoration(
-                color: violet.withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Icon(
-                Icons.home_work_outlined,
-                color: violet,
-                size: 85,
-              ),
-            ),
+            _GaleriePhotos(photos: logement.photos),
 
             const SizedBox(height: 22),
 
@@ -539,9 +525,8 @@ class _LogementDetailScreenState
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: isDeleting
-                      ? null
-                      : supprimerLogement,
+                  onPressed:
+                      isDeleting ? null : supprimerLogement,
                   icon: const Icon(Icons.delete_outline),
                   label: Text(
                     isDeleting
@@ -561,6 +546,156 @@ class _LogementDetailScreenState
           ],
         ),
       ),
+    );
+  }
+}
+
+// ======================================================
+// GALERIE PHOTOS DU LOGEMENT
+// ======================================================
+
+class _GaleriePhotos extends StatefulWidget {
+  final List<String> photos;
+
+  const _GaleriePhotos({
+    required this.photos,
+  });
+
+  @override
+  State<_GaleriePhotos> createState() =>
+      _GaleriePhotosState();
+}
+
+class _GaleriePhotosState extends State<_GaleriePhotos> {
+  int photoActuelle = 0;
+
+  static const violet = Color(0xFF6C4AB6);
+
+  @override
+  Widget build(BuildContext context) {
+    // S'il n'y a aucune photo.
+    if (widget.photos.isEmpty) {
+      return Container(
+        width: double.infinity,
+        height: 250,
+        decoration: BoxDecoration(
+          color: violet.withOpacity(0.10),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Icon(
+          Icons.home_work_outlined,
+          color: violet,
+          size: 85,
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        SizedBox(
+          width: double.infinity,
+          height: 250,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: Stack(
+              children: [
+                // Swipe entre les photos.
+                PageView.builder(
+                  itemCount: widget.photos.length,
+                  onPageChanged: (index) {
+                    setState(() {
+                      photoActuelle = index;
+                    });
+                  },
+                  itemBuilder: (context, index) {
+                    return Image.network(
+                      widget.photos[index],
+                      width: double.infinity,
+                      height: 250,
+                      fit: BoxFit.cover,
+                      loadingBuilder:
+                          (context, child, progress) {
+                        if (progress == null) return child;
+
+                        return Container(
+                          color: violet.withOpacity(0.08),
+                          child: const Center(
+                            child: CircularProgressIndicator(
+                              color: violet,
+                            ),
+                          ),
+                        );
+                      },
+                      errorBuilder:
+                          (context, error, stackTrace) {
+                        return Container(
+                          color: violet.withOpacity(0.10),
+                          child: const Icon(
+                            Icons.broken_image_outlined,
+                            color: violet,
+                            size: 60,
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+
+                // Compteur en haut à droite.
+                if (widget.photos.length > 1)
+                  Positioned(
+                    top: 12,
+                    right: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '${photoActuelle + 1}/${widget.photos.length}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+
+        // Petits points sous les photos.
+        if (widget.photos.length > 1) ...[
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(
+              widget.photos.length,
+              (index) {
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                  ),
+                  width: photoActuelle == index ? 20 : 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: photoActuelle == index
+                        ? violet
+                        : violet.withOpacity(0.25),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

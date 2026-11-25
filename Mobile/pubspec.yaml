@@ -1,3 +1,4 @@
+
 name: mobile
 description: "DariGo Flutter App"
 
@@ -11,10 +12,18 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+
   image_picker: ^1.2.3
   cupertino_icons: ^1.0.8
   http: ^1.6.0
   shared_preferences: ^2.5.6
+
+  # Google Maps et géolocalisation
+  google_maps_flutter: ^2.18.1
+  geolocator: ^14.1.2
+  geocoding: ^5.0.1
+
+  # Messagerie en temps réel
   web_socket_channel: ^3.0.3
 
 dev_dependencies:

@@ -17,8 +17,9 @@ class _GestionReservationsScreenState
   bool chargement = true;
   String? erreur;
 
-  // Évite plusieurs modifications simultanées.
   final Set<int> reservationsEnCours = {};
+
+  static const String serveurUrl = 'http://127.0.0.1:8000';
 
   @override
   void initState() {
@@ -55,20 +56,17 @@ class _GestionReservationsScreenState
       await CustomPopup.showErrorPopup(
         context: context,
         title: 'Erreur de chargement',
-        message: 'Impossible de récupérer les réservations. Vérifiez votre connexion.',
+        message:
+            'Impossible de récupérer les réservations. Vérifiez votre connexion.',
       );
     }
   }
 
-  Future<void> changerStatut(
-    int id,
-    String statut,
-  ) async {
+  Future<void> changerStatut(int id, String statut) async {
     if (reservationsEnCours.contains(id)) return;
 
     final bool accepter = statut == 'acceptee';
 
-    // Demander confirmation
     final confirmer = await CustomPopup.showConfirmPopup(
       context: context,
       title: accepter
@@ -112,7 +110,8 @@ class _GestionReservationsScreenState
       await CustomPopup.showErrorPopup(
         context: context,
         title: 'Modification impossible',
-        message: 'Une erreur est survenue lors de la modification de la réservation.',
+        message:
+            'Une erreur est survenue lors de la modification de la réservation.',
       );
 
       debugPrint('Erreur changement statut : $e');
@@ -143,6 +142,77 @@ class _GestionReservationsScreenState
     }
   }
 
+  String? obtenirPhotoUrl(dynamic photo) {
+    if (photo == null || photo.toString().isEmpty) {
+      return null;
+    }
+
+    String url = photo.toString();
+
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+
+    if (!url.startsWith('/')) {
+      url = '/$url';
+    }
+
+    return '$serveurUrl$url';
+  }
+
+  Widget afficherPhoto(dynamic photo) {
+    final photoUrl = obtenirPhotoUrl(photo);
+
+    return Container(
+      width: 75,
+      height: 75,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: Colors.deepPurple,
+          width: 2,
+        ),
+      ),
+      child: ClipOval(
+        child: photoUrl == null
+            ? Container(
+                color: Colors.deepPurple.shade50,
+                child: const Icon(
+                  Icons.person,
+                  size: 40,
+                  color: Colors.deepPurple,
+                ),
+              )
+            : Image.network(
+                photoUrl,
+                width: 75,
+                height: 75,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    color: Colors.deepPurple.shade50,
+                    child: const Icon(
+                      Icons.person,
+                      size: 40,
+                      color: Colors.deepPurple,
+                    ),
+                  );
+                },
+              ),
+      ),
+    );
+  }
+
+  Widget ligneDetail(String titre, dynamic contenu) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 5),
+      child: Text(
+        '$titre : ${valeur(contenu)}',
+        style: const TextStyle(fontSize: 14),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -151,7 +221,6 @@ class _GestionReservationsScreenState
         backgroundColor: Colors.deepPurple,
         foregroundColor: Colors.white,
       ),
-
       body: chargement
           ? const Center(
               child: CircularProgressIndicator(),
@@ -230,36 +299,59 @@ class _GestionReservationsScreenState
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
+                                  const SizedBox(height: 15),
 
-                                  const SizedBox(height: 10),
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      afficherPhoto(r['visiteur_photo']),
+                                      const SizedBox(width: 15),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              valeur(
+                                                r['visiteur_username'],
+                                              ),
+                                              style: const TextStyle(
+                                                fontSize: 16,
+                                                fontWeight:
+                                                    FontWeight.bold,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 5),
+                                            Text(
+                                              valeur(r['visiteur_email']),
+                                              style: const TextStyle(
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 5),
+                                            Text(
+                                              valeur(r['visiteur_phone']),
+                                              style: const TextStyle(
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
 
-                                  Text(
-                                    'Visiteur : ${valeur(r['visiteur_username'])}',
-                                  ),
-                                  Text(
-                                    'Email : ${valeur(r['visiteur_email'])}',
-                                  ),
-                                  Text(
-                                    'Téléphone : ${valeur(r['visiteur_phone'])}',
-                                  ),
+                                  const Divider(height: 25),
 
-                                  const Divider(),
-
-                                  Text(
-                                    'Arrivée : ${valeur(r['date_arrivee'])}',
+                                  ligneDetail('Arrivée', r['date_arrivee']),
+                                  ligneDetail('Départ', r['date_depart']),
+                                  ligneDetail(
+                                    'Personnes',
+                                    r['nombre_personnes'],
                                   ),
-                                  Text(
-                                    'Départ : ${valeur(r['date_depart'])}',
-                                  ),
-                                  Text(
-                                    'Personnes : ${valeur(r['nombre_personnes'])}',
-                                  ),
-                                  Text(
-                                    'Besoins : ${valeur(r['besoins'])}',
-                                  ),
-                                  Text(
-                                    'Message : ${valeur(r['message'])}',
-                                  ),
+                                  ligneDetail('Besoins', r['besoins']),
+                                  ligneDetail('Message', r['message']),
 
                                   const SizedBox(height: 10),
 
@@ -277,7 +369,6 @@ class _GestionReservationsScreenState
 
                                   if (statut == 'en_attente') ...[
                                     const SizedBox(height: 12),
-
                                     Row(
                                       children: [
                                         Expanded(
@@ -308,9 +399,7 @@ class _GestionReservationsScreenState
                                                 : const Text('Accepter'),
                                           ),
                                         ),
-
                                         const SizedBox(width: 10),
-
                                         Expanded(
                                           child: ElevatedButton(
                                             onPressed: enCours
