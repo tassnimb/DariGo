@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 
 import '../../services/favori_service.dart';
@@ -13,10 +12,15 @@ class MesFavorisScreen extends StatefulWidget {
 
 class _MesFavorisScreenState
     extends State<MesFavorisScreen> {
+  static const _fondCreme = Color(0xFFF5F2EB);
+  static const _surfaceClaire = Color(0xFFFAF8F3);
+  static const _sableClair = Color(0xFFEAE3D5);
+  static const _vertSapin = Color(0xFF1F3D2B);
+  static const _textePrincipal = Color(0xFF1D2B22);
+  static const _texteSecondaire = Color(0xFF677068);
+  static const _rougeErreur = Color(0xFFB5483C);
 
-  static const violet = Color(0xFF6C4AB6);
-
-  late Future<List<Map<String, dynamic>>> favorisFuture;
+  late Future<List> favorisFuture;
 
   @override
   void initState() {
@@ -39,22 +43,28 @@ class _MesFavorisScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F6FA),
+      backgroundColor: _fondCreme,
 
       appBar: AppBar(
-        title: const Text("Mes favoris"),
-        backgroundColor: violet,
-        foregroundColor: Colors.white,
+        title: const Text(
+          "Mes favoris",
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
+        backgroundColor: _fondCreme,
+        foregroundColor: _vertSapin,
+        elevation: 0,
+        scrolledUnderElevation: 0,
       ),
 
-      body: FutureBuilder<List<Map<String, dynamic>>>(
+      body: FutureBuilder<List>(
         future: favorisFuture,
         builder: (context, snapshot) {
-
           if (snapshot.connectionState ==
               ConnectionState.waiting) {
             return const Center(
-              child: CircularProgressIndicator(),
+              child: CircularProgressIndicator(
+                color: _vertSapin,
+              ),
             );
           }
 
@@ -62,6 +72,7 @@ class _MesFavorisScreenState
             return Center(
               child: Text(
                 "Erreur : ${snapshot.error}",
+                style: const TextStyle(color: _rougeErreur),
               ),
             );
           }
@@ -72,50 +83,61 @@ class _MesFavorisScreenState
             return const Center(
               child: Text(
                 "Aucun favori ❤️",
-                style: TextStyle(fontSize: 17),
+                style: TextStyle(
+                  fontSize: 17,
+                  color: _texteSecondaire,
+                ),
               ),
             );
           }
 
           return RefreshIndicator(
+            color: _vertSapin,
+            backgroundColor: _surfaceClaire,
             onRefresh: actualiser,
             child: ListView.builder(
               padding: const EdgeInsets.all(16),
               itemCount: favoris.length,
-
               itemBuilder: (context, index) {
                 final favori = favoris[index];
 
                 return Card(
-                  color: Colors.white,
-                  elevation: 2,
+                  color: _surfaceClaire,
+                  elevation: 0,
                   margin: const EdgeInsets.only(
                     bottom: 15,
                   ),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(16),
+                    side: const BorderSide(color: _sableClair),
                   ),
-
                   child: ListTile(
                     contentPadding: const EdgeInsets.all(15),
-
-                    leading: const Icon(
-                      Icons.favorite,
-                      color: Colors.red,
-                      size: 30,
+                    leading: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: _sableClair,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.favorite,
+                        color: _rougeErreur,
+                        size: 24,
+                      ),
                     ),
-
                     title: Text(
                       favori['logement_titre']
                               ?.toString() ??
                           '',
                       style: const TextStyle(
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w700,
+                        color: _textePrincipal,
                       ),
                     ),
-
                     subtitle: const Text(
                       "Ajouté aux favoris",
+                      style: TextStyle(color: _texteSecondaire),
                     ),
                   ),
                 );

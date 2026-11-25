@@ -1,15 +1,13 @@
-
 import 'package:flutter/material.dart';
 
 import '../../models/logement.dart';
-import '../../services/logement_service.dart';
 import '../../services/avis_service.dart';
+import '../../services/logement_service.dart';
 import '../../services/messagerie_service.dart';
 import '../../widgets/custom_popup.dart';
-
+import '../messagerie/chat_screen.dart';
 import 'modifier_logement_screen.dart';
 import 'reservation_screen.dart';
-import '../messagerie/chat_screen.dart';
 
 class LogementDetailScreen extends StatefulWidget {
   final Logement logement;
@@ -26,22 +24,39 @@ class LogementDetailScreen extends StatefulWidget {
       _LogementDetailScreenState();
 }
 
-class _LogementDetailScreenState
-    extends State<LogementDetailScreen> {
-  bool isDeleting = false;
-  bool isContacting = false;
+class _LogementDetailScreenState extends State<LogementDetailScreen> {
+  // ===========================================================================
+  // THÈME DARIGO
+  // ===========================================================================
+  static const Color _fondCreme = Color(0xFFF5F2EB);
+  static const Color _surfaceClaire = Color(0xFFFAF8F3);
+  static const Color _sableClair = Color(0xFFEAE3D5);
+  static const Color _vertSapin = Color(0xFF1F3D2B);
+  static const Color _vertSauge = Color(0xFF6E8F79);
+  static const Color _brunTerre = Color(0xFF6F5E4E);
+  static const Color _textePrincipal = Color(0xFF1D2B22);
+  static const Color _texteSecondaire = Color(0xFF677068);
+  static const Color _rougeErreur = Color(0xFFB5483C);
+  static const Color _orEtoile = Color(0xFFD49B27);
 
-  late Future<List<Map<String, dynamic>>> avisFuture;
+  // ===========================================================================
+  // ÉTAT
+  // ===========================================================================
+  bool _isDeleting = false;
+  bool _isContacting = false;
 
-  static const violet = Color(0xFF6C4AB6);
+  late Future<List> _avisFuture;
 
   @override
   void initState() {
     super.initState();
-    avisFuture = AvisService.getAvis(widget.logement.id);
+    _avisFuture = AvisService.getAvis(widget.logement.id);
   }
 
-  Future<void> modifierLogement() async {
+  // ===========================================================================
+  // ACTIONS MÉTIER
+  // ===========================================================================
+  Future<void> _modifierLogement() async {
     final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
@@ -58,7 +73,7 @@ class _LogementDetailScreenState
     }
   }
 
-  Future<void> reserverLogement() async {
+  Future<void> _reserverLogement() async {
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -69,13 +84,10 @@ class _LogementDetailScreenState
     );
   }
 
-  // CONTACTER LE PROPRIÉTAIRE
-  Future<void> contacterProprietaire() async {
-    if (isContacting) return;
+  Future<void> _contacterProprietaire() async {
+    if (_isContacting) return;
 
-    setState(() {
-      isContacting = true;
-    });
+    setState(() => _isContacting = true);
 
     try {
       final conversation =
@@ -102,8 +114,7 @@ class _LogementDetailScreenState
         context,
         MaterialPageRoute(
           builder: (_) => ChatScreen(
-            conversationId:
-                int.parse(conversationId.toString()),
+            conversationId: int.parse(conversationId.toString()),
             username: username.toString(),
             logementTitre: widget.logement.titre,
           ),
@@ -111,26 +122,21 @@ class _LogementDetailScreenState
       );
     } catch (e) {
       if (!mounted) return;
-
       await CustomPopup.showErrorPopup(
         context: context,
         title: 'Impossible de contacter',
         message:
             'Une erreur est survenue lors de l’ouverture de la conversation. Veuillez réessayer.',
       );
-
       debugPrint('Erreur contact propriétaire : $e');
     } finally {
       if (mounted) {
-        setState(() {
-          isContacting = false;
-        });
+        setState(() => _isContacting = false);
       }
     }
   }
 
-  // SUPPRIMER UN LOGEMENT
-  Future<void> supprimerLogement() async {
+  Future<void> _supprimerLogement() async {
     final confirmer = await CustomPopup.showConfirmPopup(
       context: context,
       title: 'Supprimer le logement',
@@ -141,13 +147,10 @@ class _LogementDetailScreenState
 
     if (!confirmer || !mounted) return;
 
-    setState(() {
-      isDeleting = true;
-    });
+    setState(() => _isDeleting = true);
 
     try {
-      final success =
-          await LogementService.deleteLogement(
+      final success = await LogementService.deleteLogement(
         widget.logement.id,
       );
 
@@ -159,9 +162,7 @@ class _LogementDetailScreenState
           title: 'Logement supprimé',
           message: 'Votre logement a été supprimé avec succès.',
         );
-
         if (!mounted) return;
-
         Navigator.pop(context, true);
       } else {
         await CustomPopup.showErrorPopup(
@@ -173,176 +174,441 @@ class _LogementDetailScreenState
       }
     } catch (e) {
       if (!mounted) return;
-
       await CustomPopup.showErrorPopup(
         context: context,
         title: 'Erreur de suppression',
         message:
             'Une erreur est survenue lors de la suppression du logement.',
       );
-
       debugPrint('Erreur suppression logement : $e');
     } finally {
       if (mounted) {
-        setState(() {
-          isDeleting = false;
-        });
+        setState(() => _isDeleting = false);
       }
     }
   }
 
-  // ÉTOILES DES AVIS
-  Widget construireEtoiles(double note) {
+  String _formatPrix(double montant) {
+    return montant % 1 == 0
+        ? '${montant.toStringAsFixed(0)} DT'
+        : '${montant.toStringAsFixed(2)} DT';
+  }
+
+  // ===========================================================================
+  // COMPOSANTS UI
+  // ===========================================================================
+  Widget _carteConteneur({
+    required Widget child,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(16),
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: padding,
+      decoration: BoxDecoration(
+        color: _surfaceClaire,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _sableClair),
+      ),
+      child: child,
+    );
+  }
+
+  Widget _construireEtoiles(double note) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: List.generate(5, (index) {
         return Icon(
-          index < note.round()
-              ? Icons.star
-              : Icons.star_border,
-          color: Colors.amber,
-          size: 21,
+          index < note.round() ? Icons.star : Icons.star_border,
+          color: _orEtoile,
+          size: 20,
         );
       }),
     );
   }
 
-  // AFFICHER LES AVIS
-  Widget afficherAvis() {
-    return FutureBuilder<List<Map<String, dynamic>>>(
-      future: avisFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState ==
-            ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
-        }
-
-        if (snapshot.hasError) {
-          return Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.red.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(12),
+  Widget _construireSectionInfosPrincipales(Logement logement) {
+    return _carteConteneur(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            logement.titre,
+            style: const TextStyle(
+              fontSize: 23,
+              fontWeight: FontWeight.w700,
+              color: _textePrincipal,
+              height: 1.25,
             ),
-            child: const Row(
-              children: [
-                Icon(
-                  Icons.error_outline,
-                  color: Colors.red,
-                ),
-                SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Impossible de charger les avis. Veuillez réessayer plus tard.',
-                    style: TextStyle(color: Colors.red),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-
-        final avis = snapshot.data ?? [];
-
-        if (avis.isEmpty) {
-          return const Text(
-            'Aucun avis pour le moment.',
-            style: TextStyle(color: Colors.grey),
-          );
-        }
-
-        final total = avis.fold<double>(
-          0,
-          (sum, item) =>
-              sum + (item['note'] as num).toDouble(),
-        );
-
-        final moyenne = total / avis.length;
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(15),
-              decoration: BoxDecoration(
-                color: violet.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(14),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              const Icon(
+                Icons.location_on_outlined,
+                color: _vertSapin,
+                size: 19,
               ),
-              child: Row(
-                children: [
-                  Text(
-                    moyenne.toStringAsFixed(1),
-                    style: const TextStyle(
-                      fontSize: 30,
-                      fontWeight: FontWeight.bold,
-                      color: violet,
-                    ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  logement.adresse,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    color: _texteSecondaire,
+                    fontWeight: FontWeight.w500,
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
-                      children: [
-                        construireEtoiles(moyenne),
-                        Text(
-                          '${avis.length} avis',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 8,
+            ),
+            decoration: BoxDecoration(
+              color: _sableClair,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              _formatPrix(logement.prix),
+              style: const TextStyle(
+                fontSize: 19,
+                fontWeight: FontWeight.w700,
+                color: _vertSapin,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _construireSectionDescription(String description) {
+    return _carteConteneur(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Description',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: _textePrincipal,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            description,
+            style: const TextStyle(
+              fontSize: 15,
+              height: 1.55,
+              color: _textePrincipal,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _construireSectionAvis() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Avis des visiteurs',
+          style: TextStyle(
+            fontSize: 19,
+            fontWeight: FontWeight.w700,
+            color: _textePrincipal,
+          ),
+        ),
+        const SizedBox(height: 12),
+        FutureBuilder<List>(
+          future: _avisFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState ==
+                ConnectionState.waiting) {
+              return _carteConteneur(
+                padding: const EdgeInsets.all(24),
+                child: const Center(
+                  child: CircularProgressIndicator(
+                    color: _vertSapin,
+                  ),
+                ),
+              );
+            }
+
+            if (snapshot.hasError) {
+              return Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: _rougeErreur.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(
+                    color: _rougeErreur.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.error_outline, color: _rougeErreur),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Impossible de charger les avis. Veuillez réessayer plus tard.',
+                        style: TextStyle(color: _rougeErreur),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            final avis = snapshot.data ?? [];
+
+            if (avis.isEmpty) {
+              return _carteConteneur(
+                padding: const EdgeInsets.all(18),
+                child: const Text(
+                  'Aucun avis pour le moment.',
+                  style: TextStyle(color: _texteSecondaire),
+                ),
+              );
+            }
+
+            final total = avis.fold<double>(
+              0,
+              (sum, item) => sum + (item['note'] as num).toDouble(),
+            );
+            final moyenne = total / avis.length;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _carteConteneur(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _sableClair,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Text(
+                          moyenne.toStringAsFixed(1),
                           style: const TextStyle(
-                            color: Colors.grey,
+                            fontSize: 28,
+                            fontWeight: FontWeight.w700,
+                            color: _vertSapin,
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 15),
-
-            ...avis.map((item) {
-              final note =
-                  (item['note'] as num).toDouble();
-
-              return Card(
-                margin:
-                    const EdgeInsets.only(bottom: 12),
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item['visiteur_username'] ??
-                            'Visiteur',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
                       ),
-                      const SizedBox(height: 6),
-                      construireEtoiles(note),
-                      const SizedBox(height: 8),
-                      Text(
-                        (item['commentaire'] ?? '')
-                                .toString()
-                                .isEmpty
-                            ? 'Aucun commentaire.'
-                            : item['commentaire']
-                                .toString(),
-                        style:
-                            const TextStyle(fontSize: 15),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _construireEtoiles(moyenne),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${avis.length} avis',
+                              style: const TextStyle(
+                                color: _texteSecondaire,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
                 ),
-              );
-            }),
-          ],
-        );
-      },
+                const SizedBox(height: 12),
+                ...avis.map((item) {
+                  final note = (item['note'] as num).toDouble();
+                  final commentaire =
+                      (item['commentaire'] ?? '').toString().trim();
+
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _carteConteneur(
+                      padding: const EdgeInsets.all(15),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment:
+                                MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  (item['visiteur_username'] ??
+                                          'Visiteur')
+                                      .toString(),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 15,
+                                    color: _textePrincipal,
+                                  ),
+                                ),
+                              ),
+                              _construireEtoiles(note),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            commentaire.isEmpty
+                                ? 'Aucun commentaire.'
+                                : commentaire,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              height: 1.45,
+                              color: _textePrincipal,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _construireBoutonsVisiteur() {
+    return Column(
+      children: [
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _isContacting ? null : _contacterProprietaire,
+            icon: _isContacting
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: _vertSapin,
+                    ),
+                  )
+                : const Icon(Icons.chat_bubble_outline),
+            label: Text(
+              _isContacting
+                  ? 'Ouverture de la conversation...'
+                  : 'Contacter le propriétaire',
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _vertSapin,
+              backgroundColor: _surfaceClaire,
+              disabledForegroundColor: _texteSecondaire,
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              side: const BorderSide(color: _vertSapin),
+              textStyle: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _reserverLogement,
+            icon: const Icon(Icons.calendar_month_outlined),
+            label: const Text('Réserver ce logement'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _vertSapin,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              textStyle: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _construireBoutonsProprietaire() {
+    return Column(
+      children: [
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _modifierLogement,
+            icon: const Icon(Icons.edit_outlined),
+            label: const Text('Modifier le logement'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _vertSapin,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              textStyle: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _isDeleting ? null : _supprimerLogement,
+            icon: _isDeleting
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: _rougeErreur,
+                    ),
+                  )
+                : const Icon(Icons.delete_outline),
+            label: Text(
+              _isDeleting
+                  ? 'Suppression...'
+                  : 'Supprimer le logement',
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _rougeErreur,
+              backgroundColor: _surfaceClaire,
+              disabledForegroundColor: _texteSecondaire,
+              side: const BorderSide(color: _rougeErreur),
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              textStyle: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -351,209 +617,46 @@ class _LogementDetailScreenState
     final logement = widget.logement;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F6FA),
-
+      backgroundColor: _fondCreme,
       appBar: AppBar(
-        title: const Text('Détail du logement'),
-        backgroundColor: violet,
-        foregroundColor: Colors.white,
+        title: const Text(
+          'Détail du logement',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
+        backgroundColor: _fondCreme,
+        foregroundColor: _vertSapin,
+        elevation: 0,
+        scrolledUnderElevation: 0,
       ),
-
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(18),
-
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _GaleriePhotos(photos: logement.photos),
-
-            const SizedBox(height: 22),
-
-            Text(
-              logement.titre,
-              style: const TextStyle(
-                fontSize: 25,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            Row(
-              children: [
-                const Icon(
-                  Icons.location_on_outlined,
-                  color: violet,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    logement.adresse,
-                    style: const TextStyle(fontSize: 16),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 18),
-
-            Container(
-              padding: const EdgeInsets.all(16),
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: violet.withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Text(
-                '${logement.prix.toStringAsFixed(0)} DT',
-                style: const TextStyle(
-                  fontSize: 23,
-                  fontWeight: FontWeight.bold,
-                  color: violet,
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            const Text(
-              'Description',
-              style: TextStyle(
-                fontSize: 19,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 10),
-
-            Text(
-              logement.description,
-              style: const TextStyle(
-                fontSize: 16,
-                height: 1.5,
-              ),
-            ),
-
-            const SizedBox(height: 28),
-
-            const Text(
-              'Avis des visiteurs',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            afficherAvis(),
-
-            // BOUTONS DU VISITEUR
-            if (!widget.isProprietaire) ...[
-              const SizedBox(height: 30),
-
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: isContacting
-                      ? null
-                      : contacterProprietaire,
-                  icon: isContacting
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(Icons.chat),
-                  label: Text(
-                    isContacting
-                        ? 'Ouverture de la conversation...'
-                        : 'Contacter le propriétaire',
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.deepPurple,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.all(15),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: reserverLogement,
-                  icon: const Icon(Icons.calendar_month),
-                  label: const Text(
-                    'Réserver ce logement',
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: violet,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.all(15),
-                  ),
-                ),
-              ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _GaleriePhotos(photos: logement.photos),
+              const SizedBox(height: 18),
+              _construireSectionInfosPrincipales(logement),
+              const SizedBox(height: 16),
+              _construireSectionDescription(logement.description),
+              const SizedBox(height: 22),
+              _construireSectionAvis(),
+              const SizedBox(height: 24),
+              if (widget.isProprietaire)
+                _construireBoutonsProprietaire()
+              else
+                _construireBoutonsVisiteur(),
             ],
-
-            // BOUTONS DU PROPRIÉTAIRE
-            if (widget.isProprietaire) ...[
-              const SizedBox(height: 30),
-
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: modifierLogement,
-                  icon: const Icon(Icons.edit_outlined),
-                  label: const Text(
-                    'Modifier le logement',
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: violet,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.all(15),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed:
-                      isDeleting ? null : supprimerLogement,
-                  icon: const Icon(Icons.delete_outline),
-                  label: Text(
-                    isDeleting
-                        ? 'Suppression...'
-                        : 'Supprimer le logement',
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.red,
-                    side: const BorderSide(
-                      color: Colors.red,
-                    ),
-                    padding: const EdgeInsets.all(15),
-                  ),
-                ),
-              ),
-            ],
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-// ======================================================
+// =============================================================================
 // GALERIE PHOTOS DU LOGEMENT
-// ======================================================
-
+// =============================================================================
 class _GaleriePhotos extends StatefulWidget {
   final List<String> photos;
 
@@ -562,30 +665,42 @@ class _GaleriePhotos extends StatefulWidget {
   });
 
   @override
-  State<_GaleriePhotos> createState() =>
-      _GaleriePhotosState();
+  State<_GaleriePhotos> createState() => _GaleriePhotosState();
 }
 
 class _GaleriePhotosState extends State<_GaleriePhotos> {
-  int photoActuelle = 0;
-
-  static const violet = Color(0xFF6C4AB6);
+  int _photoActuelle = 0;
 
   @override
   Widget build(BuildContext context) {
-    // S'il n'y a aucune photo.
     if (widget.photos.isEmpty) {
       return Container(
         width: double.infinity,
-        height: 250,
+        height: 240,
         decoration: BoxDecoration(
-          color: violet.withOpacity(0.10),
+          color: _LogementDetailScreenState._surfaceClaire,
           borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: _LogementDetailScreenState._sableClair,
+          ),
         ),
-        child: const Icon(
-          Icons.home_work_outlined,
-          color: violet,
-          size: 85,
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.home_work_outlined,
+              color: _LogementDetailScreenState._brunTerre,
+              size: 72,
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Aucune photo disponible',
+              style: TextStyle(
+                color: _LogementDetailScreenState._texteSecondaire,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -594,54 +709,46 @@ class _GaleriePhotosState extends State<_GaleriePhotos> {
       children: [
         SizedBox(
           width: double.infinity,
-          height: 250,
+          height: 240,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(20),
             child: Stack(
               children: [
-                // Swipe entre les photos.
                 PageView.builder(
                   itemCount: widget.photos.length,
                   onPageChanged: (index) {
-                    setState(() {
-                      photoActuelle = index;
-                    });
+                    setState(() => _photoActuelle = index);
                   },
                   itemBuilder: (context, index) {
                     return Image.network(
                       widget.photos[index],
                       width: double.infinity,
-                      height: 250,
+                      height: 240,
                       fit: BoxFit.cover,
-                      loadingBuilder:
-                          (context, child, progress) {
+                      loadingBuilder: (context, child, progress) {
                         if (progress == null) return child;
-
-                        return Container(
-                          color: violet.withOpacity(0.08),
-                          child: const Center(
+                        return const ColoredBox(
+                          color: _LogementDetailScreenState._sableClair,
+                          child: Center(
                             child: CircularProgressIndicator(
-                              color: violet,
+                              color: _LogementDetailScreenState._vertSapin,
                             ),
                           ),
                         );
                       },
-                      errorBuilder:
-                          (context, error, stackTrace) {
-                        return Container(
-                          color: violet.withOpacity(0.10),
-                          child: const Icon(
+                      errorBuilder: (context, error, stackTrace) {
+                        return const ColoredBox(
+                          color: _LogementDetailScreenState._sableClair,
+                          child: Icon(
                             Icons.broken_image_outlined,
-                            color: violet,
-                            size: 60,
+                            color: _LogementDetailScreenState._brunTerre,
+                            size: 56,
                           ),
                         );
                       },
                     );
                   },
                 ),
-
-                // Compteur en haut à droite.
                 if (widget.photos.length > 1)
                   Positioned(
                     top: 12,
@@ -649,17 +756,19 @@ class _GaleriePhotosState extends State<_GaleriePhotos> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
-                        vertical: 7,
+                        vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.black54,
-                        borderRadius: BorderRadius.circular(20),
+                        color: _LogementDetailScreenState._vertSapin
+                            .withValues(alpha: 0.85),
+                        borderRadius: BorderRadius.circular(999),
                       ),
                       child: Text(
-                        '${photoActuelle + 1}/${widget.photos.length}',
+                        '${_photoActuelle + 1}/${widget.photos.length}',
                         style: const TextStyle(
                           color: Colors.white,
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
                         ),
                       ),
                     ),
@@ -668,8 +777,6 @@ class _GaleriePhotosState extends State<_GaleriePhotos> {
             ),
           ),
         ),
-
-        // Petits points sous les photos.
         if (widget.photos.length > 1) ...[
           const SizedBox(height: 12),
           Row(
@@ -677,18 +784,18 @@ class _GaleriePhotosState extends State<_GaleriePhotos> {
             children: List.generate(
               widget.photos.length,
               (index) {
+                final actif = _photoActuelle == index;
                 return AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                  ),
-                  width: photoActuelle == index ? 20 : 8,
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  width: actif ? 20 : 8,
                   height: 8,
                   decoration: BoxDecoration(
-                    color: photoActuelle == index
-                        ? violet
-                        : violet.withOpacity(0.25),
-                    borderRadius: BorderRadius.circular(10),
+                    color: actif
+                        ? _LogementDetailScreenState._vertSapin
+                        : _LogementDetailScreenState._vertSauge
+                            .withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(999),
                   ),
                 );
               },

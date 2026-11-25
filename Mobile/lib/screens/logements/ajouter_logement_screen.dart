@@ -20,7 +20,6 @@ class _AjouterLogementScreenState
     extends State<AjouterLogementScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  // Couleurs
   final Color violet = const Color(0xFF6C4AB6);
   final Color violetClair = const Color(0xFFF3EEFC);
 
@@ -34,7 +33,7 @@ class _AjouterLogementScreenState
   final paysController = TextEditingController(text: 'Tunisie');
   final codePostalController = TextEditingController();
 
-  // Types de logement
+  // Types envoyés à Django
   String? typeLogement;
   String? typeHebergement;
 
@@ -53,9 +52,31 @@ class _AjouterLogementScreenState
   List<XFile> photos = [];
   static const int maxPhotos = 10;
 
-  // Navigation entre les étapes
+  // Étapes
   int currentStep = 0;
   bool isLoading = false;
+
+  // IMPORTANT :
+  // Les valeurs "value" doivent correspondre exactement
+  // aux valeurs déclarées dans les choices de models.py.
+  //
+  // Si Django n'accepte pas "appartement", "maison" ou "villa",
+  // remplace ces valeurs par les clés exactes de ton modèle.
+  final List<Map<String, String>> typesLogement = [
+    {'value': 'appartement', 'label': 'Appartement'},
+    {'value': 'maison', 'label': 'Maison'},
+    {'value': 'villa', 'label': 'Villa'},
+    {'value': 'studio', 'label': 'Studio'},
+    
+  ];
+
+  // Ces valeurs correspondent aux choices Django
+  // montrés précédemment.
+  final List<Map<String, String>> typesHebergement = [
+    {'value': 'entier', 'label': 'Logement entier'},
+    {'value': 'privee', 'label': 'Chambre privée'},
+    {'value': 'partagee', 'label': 'Chambre partagée'},
+  ];
 
   @override
   void dispose() {
@@ -71,28 +92,22 @@ class _AjouterLogementScreenState
   }
 
   // ============================
-  // SÉLECTION DES PHOTOS
+  // PHOTOS
   // ============================
 
   Future<void> choisirPhotos() async {
     try {
-      final List<XFile> images =
-          await imagePicker.pickMultiImage(
+      final images = await imagePicker.pickMultiImage(
         imageQuality: 80,
       );
 
       if (!mounted || images.isEmpty) return;
 
-      final int placesDisponibles =
-          maxPhotos - photos.length;
+      final placesDisponibles = maxPhotos - photos.length;
 
       if (placesDisponibles <= 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Vous avez atteint la limite de 10 photos.',
-            ),
-          ),
+        afficherMessage(
+          'Vous avez atteint la limite de 10 photos.',
         );
         return;
       }
@@ -101,25 +116,12 @@ class _AjouterLogementScreenState
         photos.addAll(images.take(placesDisponibles));
       });
 
-      if (images.length > placesDisponibles && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Maximum 10 photos autorisées.',
-            ),
-          ),
-        );
+      if (images.length > placesDisponibles) {
+        afficherMessage('Maximum 10 photos autorisées.');
       }
     } catch (e) {
       if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Erreur lors de la sélection : $e',
-          ),
-        ),
-      );
+      afficherMessage('Erreur lors de la sélection : $e');
     }
   }
 
@@ -130,12 +132,11 @@ class _AjouterLogementScreenState
   }
 
   // ============================
-  // SÉLECTION DE LA LOCALISATION
+  // LOCALISATION
   // ============================
 
   Future<void> choisirLocalisation() async {
-    final PickedLocation? resultat =
-        await Navigator.push<PickedLocation>(
+    final resultat = await Navigator.push<PickedLocation>(
       context,
       MaterialPageRoute(
         builder: (context) => const MapPickerScreen(),
@@ -150,16 +151,14 @@ class _AjouterLogementScreenState
 
       adresseController.text = resultat.adresse;
       villeController.text = resultat.ville;
-      gouvernoratController.text =
-          resultat.gouvernorat;
+      gouvernoratController.text = resultat.gouvernorat;
       paysController.text = resultat.pays;
-      codePostalController.text =
-          resultat.codePostal;
+      codePostalController.text = resultat.codePostal;
     });
   }
 
   // ============================
-  // GESTION DES ÉTAPES
+  // ÉTAPES
   // ============================
 
   String get nomEtape {
@@ -181,9 +180,7 @@ class _AjouterLogementScreenState
 
   Future<void> suivant() async {
     if (currentStep == 0 && typeLogement == null) {
-      afficherMessage(
-        'Veuillez choisir un type de logement.',
-      );
+      afficherMessage('Veuillez choisir un type de logement.');
       return;
     }
 
@@ -194,13 +191,12 @@ class _AjouterLogementScreenState
       return;
     }
 
-    if (currentStep == 3) {
-      if (latitude == null || longitude == null) {
-        afficherMessage(
-          'Veuillez sélectionner la localisation sur la carte.',
-        );
-        return;
-      }
+    if (currentStep == 3 &&
+        (latitude == null || longitude == null)) {
+      afficherMessage(
+        'Veuillez sélectionner la localisation sur la carte.',
+      );
+      return;
     }
 
     if (currentStep == 5) {
@@ -209,7 +205,7 @@ class _AjouterLogementScreenState
           context: context,
           title: 'Formulaire incomplet',
           message:
-              'Veuillez corriger les champs indiqués avant de continuer.',
+              'Veuillez corriger les champs indiqués avant de publier.',
         );
         return;
       }
@@ -238,11 +234,14 @@ class _AjouterLogementScreenState
   }
 
   // ============================
-  // PUBLICATION DU LOGEMENT
+  // PUBLICATION
   // ============================
 
   Future<void> publierLogement() async {
     if (!_formKey.currentState!.validate()) return;
+
+    debugPrint('TYPE LOGEMENT = $typeLogement');
+    debugPrint('TYPE HEBERGEMENT = $typeHebergement');
 
     setState(() {
       isLoading = true;
@@ -275,12 +274,10 @@ class _AjouterLogementScreenState
         await CustomPopup.showSuccessPopup(
           context: context,
           title: 'Logement ajouté !',
-          message:
-              'Votre logement a été publié avec succès.',
+          message: 'Votre logement a été publié avec succès.',
         );
 
         if (!mounted) return;
-
         Navigator.pop(context, true);
       } else {
         await CustomPopup.showErrorPopup(
@@ -299,7 +296,7 @@ class _AjouterLogementScreenState
         context: context,
         title: 'Erreur inattendue',
         message:
-            'Une erreur est survenue lors de l’ajout du logement. Veuillez réessayer.',
+            'Une erreur est survenue lors de l’ajout du logement.',
       );
     } finally {
       if (mounted) {
@@ -311,7 +308,7 @@ class _AjouterLogementScreenState
   }
 
   // ============================
-  // CHAMP TEXTE RÉUTILISABLE
+  // CHAMP TEXTE
   // ============================
 
   Widget construireChamp({
@@ -351,164 +348,107 @@ class _AjouterLogementScreenState
   }
 
   // ============================
-  // ÉTAPE 1 : TYPE DE LOGEMENT
+  // CARTE DE SÉLECTION
+  // ============================
+
+  Widget construireCartesSelection({
+    required String titre,
+    required List<Map<String, String>> choix,
+    required String? valeurSelectionnee,
+    required ValueChanged<String> onSelection,
+    required IconData icone,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          titre,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 20),
+        ...choix.map((item) {
+          final value = item['value']!;
+          final label = item['label']!;
+          final selected = valeurSelectionnee == value;
+
+          return GestureDetector(
+            onTap: () {
+              setState(() {
+                onSelection(value);
+              });
+            },
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: selected ? violetClair : Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: selected ? violet : Colors.grey.shade300,
+                  width: selected ? 2 : 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(icone, color: violet, size: 28),
+                  const SizedBox(width: 15),
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  if (selected)
+                    Icon(Icons.check_circle, color: violet),
+                ],
+              ),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  // ============================
+  // ÉTAPE 1 : TYPE LOGEMENT
   // ============================
 
   Widget construireEtapeTypeLogement() {
-    final types = [
-      'appartement',
-      'maison',
-      'villa',
-      'studio',
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Quel type de logement proposez-vous ?',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 20),
-        ...types.map((type) {
-          final selectionne = typeLogement == type;
-
-          return GestureDetector(
-            onTap: () {
-              setState(() {
-                typeLogement = type;
-              });
-            },
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: selectionne
-                    ? violetClair
-                    : Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: selectionne
-                      ? violet
-                      : Colors.grey.shade300,
-                  width: selectionne ? 2 : 1,
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.home_outlined,
-                    color: violet,
-                    size: 28,
-                  ),
-                  const SizedBox(width: 15),
-                  Expanded(
-                    child: Text(
-                      type[0].toUpperCase() +
-                          type.substring(1),
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  if (selectionne)
-                    Icon(
-                      Icons.check_circle,
-                      color: violet,
-                    ),
-                ],
-              ),
-            ),
-          );
-        }),
-      ],
+    return construireCartesSelection(
+      titre: 'Quel type de logement proposez-vous ?',
+      choix: typesLogement,
+      valeurSelectionnee: typeLogement,
+      onSelection: (value) {
+        typeLogement = value;
+      },
+      icone: Icons.home_outlined,
     );
   }
 
   // ============================
-  // ÉTAPE 2 : TYPE D'HÉBERGEMENT
+  // ÉTAPE 2 : HÉBERGEMENT
   // ============================
 
   Widget construireEtapeHebergement() {
-    final types = [
-      'entier',
-      'chambre privée',
-      'chambre partagée',
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Quel type d’hébergement proposez-vous ?',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 20),
-        ...types.map((type) {
-          final selectionne = typeHebergement == type;
-
-          return GestureDetector(
-            onTap: () {
-              setState(() {
-                typeHebergement = type;
-              });
-            },
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: selectionne
-                    ? violetClair
-                    : Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: selectionne
-                      ? violet
-                      : Colors.grey.shade300,
-                  width: selectionne ? 2 : 1,
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.bed_outlined,
-                    color: violet,
-                    size: 28,
-                  ),
-                  const SizedBox(width: 15),
-                  Expanded(
-                    child: Text(
-                      type[0].toUpperCase() +
-                          type.substring(1),
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  if (selectionne)
-                    Icon(
-                      Icons.check_circle,
-                      color: violet,
-                    ),
-                ],
-              ),
-            ),
-          );
-        }),
-      ],
+    return construireCartesSelection(
+      titre: 'Quel type d’hébergement proposez-vous ?',
+      choix: typesHebergement,
+      valeurSelectionnee: typeHebergement,
+      onSelection: (value) {
+        typeHebergement = value;
+      },
+      icone: Icons.bed_outlined,
     );
   }
 
   // ============================
-  // ÉTAPE 3 : CAPACITÉ
+  // COMPTEURS
   // ============================
 
   Widget construireCompteur({
@@ -527,9 +467,7 @@ class _AjouterLogementScreenState
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.grey.shade300,
-        ),
+        border: Border.all(color: Colors.grey.shade300),
       ),
       child: Row(
         children: [
@@ -575,6 +513,10 @@ class _AjouterLogementScreenState
       ),
     );
   }
+
+  // ============================
+  // ÉTAPE 3 : CAPACITÉ
+  // ============================
 
   Widget construireEtapeCapacite() {
     return Column(
@@ -660,9 +602,7 @@ class _AjouterLogementScreenState
           ),
         ),
         const SizedBox(height: 10),
-        const Text(
-          'Choisissez son emplacement sur la carte.',
-        ),
+        const Text('Choisissez son emplacement sur la carte.'),
         const SizedBox(height: 20),
         Container(
           padding: const EdgeInsets.all(18),
@@ -672,19 +612,13 @@ class _AjouterLogementScreenState
           ),
           child: Column(
             children: [
-              Icon(
-                Icons.location_on,
-                size: 45,
-                color: violet,
-              ),
+              Icon(Icons.location_on, size: 45, color: violet),
               const SizedBox(height: 10),
               Text(
                 latitude == null
                     ? 'Aucune localisation sélectionnée'
                     : 'Localisation sélectionnée',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                ),
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               if (latitude != null) ...[
                 const SizedBox(height: 8),
@@ -697,7 +631,7 @@ class _AjouterLogementScreenState
               ElevatedButton.icon(
                 onPressed: choisirLocalisation,
                 icon: const Icon(Icons.map),
-                label: const Text('Choisir sur Google Maps'),
+                label: const Text('Choisir sur la carte'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: violet,
                   foregroundColor: Colors.white,
@@ -756,80 +690,26 @@ class _AjouterLogementScreenState
         ),
         const SizedBox(height: 8),
         Text(
-          'Les photos permettent aux voyageurs de découvrir votre logement.',
-          style: TextStyle(
-            color: Colors.grey.shade600,
-          ),
+          'Ajoutez jusqu’à 10 photos.',
+          style: TextStyle(color: Colors.grey.shade600),
         ),
         const SizedBox(height: 20),
-
-        GestureDetector(
-          onTap: photos.length < maxPhotos
+        ElevatedButton.icon(
+          onPressed: photos.length < maxPhotos
               ? choisirPhotos
               : null,
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(25),
-            decoration: BoxDecoration(
-              color: violetClair,
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(
-                color: violet,
-                width: 1.5,
-              ),
-            ),
-            child: Column(
-              children: [
-                Icon(
-                  Icons.add_photo_alternate_outlined,
-                  size: 45,
-                  color: violet,
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  'Ajouter des photos',
-                  style: TextStyle(
-                    color: violet,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  '${photos.length}/$maxPhotos photos sélectionnées',
-                  style: TextStyle(
-                    color: Colors.grey.shade700,
-                  ),
-                ),
-              ],
-            ),
+          icon: const Icon(Icons.add_photo_alternate_outlined),
+          label: Text(
+            'Ajouter des photos (${photos.length}/$maxPhotos)',
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: violet,
+            foregroundColor: Colors.white,
           ),
         ),
-
         const SizedBox(height: 20),
-
         if (photos.isEmpty)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(25),
-            child: Column(
-              children: [
-                Icon(
-                  Icons.image_outlined,
-                  size: 50,
-                  color: Colors.grey.shade400,
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  'Aucune photo ajoutée pour le moment',
-                  style: TextStyle(
-                    color: Colors.grey.shade600,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          )
+          const Text('Aucune photo ajoutée.')
         else
           GridView.builder(
             shrinkWrap: true,
@@ -851,16 +731,9 @@ class _AjouterLogementScreenState
                     child: FutureBuilder<Uint8List>(
                       future: photo.readAsBytes(),
                       builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        }
-
                         if (!snapshot.hasData) {
                           return const Center(
-                            child: Icon(Icons.broken_image),
+                            child: CircularProgressIndicator(),
                           );
                         }
 
@@ -873,16 +746,12 @@ class _AjouterLogementScreenState
                       },
                     ),
                   ),
-
                   if (index == 0)
                     Positioned(
                       left: 5,
                       top: 5,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 5,
-                        ),
+                        padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
                           color: violet,
                           borderRadius: BorderRadius.circular(8),
@@ -896,7 +765,6 @@ class _AjouterLogementScreenState
                         ),
                       ),
                     ),
-
                   Positioned(
                     right: 5,
                     top: 5,
@@ -925,7 +793,7 @@ class _AjouterLogementScreenState
   }
 
   // ============================
-  // ÉTAPE 6 : DESCRIPTION ET PRIX
+  // ÉTAPE 6 : DESCRIPTION
   // ============================
 
   Widget construireEtapeDescription() {
@@ -960,7 +828,7 @@ class _AjouterLogementScreenState
               return 'Veuillez saisir une description.';
             }
             if (value.trim().length < 10) {
-              return 'La description doit contenir au moins 10 caractères.';
+              return 'Minimum 10 caractères.';
             }
             return null;
           },
@@ -993,7 +861,7 @@ class _AjouterLogementScreenState
   }
 
   // ============================
-  // AFFICHER L'ÉTAPE COURANTE
+  // ÉTAPE COURANTE
   // ============================
 
   Widget construireEtape() {
@@ -1014,7 +882,7 @@ class _AjouterLogementScreenState
   }
 
   // ============================
-  // INTERFACE PRINCIPALE
+  // INTERFACE
   // ============================
 
   @override
@@ -1024,9 +892,7 @@ class _AjouterLogementScreenState
       appBar: AppBar(
         title: const Text(
           'Ajouter un logement',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.white,
         foregroundColor: violet,
@@ -1036,14 +902,8 @@ class _AjouterLogementScreenState
       body: SafeArea(
         child: Column(
           children: [
-            // Progression
             Padding(
-              padding: const EdgeInsets.fromLTRB(
-                20,
-                20,
-                20,
-                10,
-              ),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1076,8 +936,6 @@ class _AjouterLogementScreenState
                 ],
               ),
             ),
-
-            // Contenu
             Expanded(
               child: Form(
                 key: _formKey,
@@ -1087,8 +945,6 @@ class _AjouterLogementScreenState
                 ),
               ),
             ),
-
-            // Boutons précédent / suivant
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(

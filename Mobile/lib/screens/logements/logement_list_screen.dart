@@ -1,22 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../messagerie/conversations_screen.dart';
-import '../favoris/mes_favoris_screen.dart';
-
+import '../../models/logement.dart';
 import '../../services/favori_service.dart';
 import '../../services/logement_service.dart';
 import '../../services/messagerie_service.dart';
-
-import '../../models/logement.dart';
-
 import '../../widgets/custom_popup.dart';
-
-import 'mes_reservations_screen.dart';
+import '../favoris/mes_favoris_screen.dart';
 import '../login_screen.dart';
+import '../messagerie/conversations_screen.dart';
 import 'ajouter_logement_screen.dart';
-import 'logement_detail_screen.dart';
 import 'gestion_reservations_screen.dart';
+import 'logement_detail_screen.dart';
+import 'mes_reservations_screen.dart';
 
 class LogementListScreen extends StatefulWidget {
   const LogementListScreen({super.key});
@@ -27,156 +23,126 @@ class LogementListScreen extends StatefulWidget {
 }
 
 class _LogementListScreenState extends State<LogementListScreen> {
-  late Future<List<Logement>> logementsFuture;
+  // ===========================================================================
+  // THÈME DARIGO
+  // ===========================================================================
+  static const Color _fondCreme = Color(0xFFF5F2EB);
+  static const Color _surfaceClaire = Color(0xFFFAF8F3);
+  static const Color _sableClair = Color(0xFFEAE3D5);
+  static const Color _vertSapin = Color(0xFF1F3D2B);
+  static const Color _vertSauge = Color(0xFF6E8F79);
+  static const Color _brunTerre = Color(0xFF6F5E4E);
+  static const Color _textePrincipal = Color(0xFF1D2B22);
+  static const Color _texteSecondaire = Color(0xFF677068);
+  static const Color _rougeErreur = Color(0xFFB5483C);
 
-  final rechercheController = TextEditingController();
+  // ===========================================================================
+  // ÉTAT & CONTRÔLEURS
+  // ===========================================================================
+  late Future<List<Logement>> _logementsFuture;
+  final TextEditingController _rechercheController =
+      TextEditingController();
 
-  String role = '';
-  String recherche = '';
-  String? profilePhotoUrl;
+  String _role = '';
+  String _recherche = '';
+  String? _profilePhotoUrl;
 
-  RangeValues? selectedRange;
-  int ordrePrix = 0;
+  int _categorieActive = 0; // 0: Tout voir, 1: Logements, 2: Populaires
+  int _ongletBas = 0; // 0: Explorer, 1: Favoris, 2: Réservations, 3: Messages
 
-  // Nombre total de messages non lus.
-  int totalMessagesNonLus = 0;
+  RangeValues? _selectedRange;
+  bool _afficherFiltrePrix = false;
+  int _ordrePrix = 0;
+  int _totalMessagesNonLus = 0;
 
-  // logementId -> favoriId
-  final Map<int, int> favoris = {};
+  final Map<int, int> _favoris = {};
+  final Set<int> _favorisEnCours = {};
 
-  // Évite plusieurs clics pendant une opération.
-  final Set<int> favorisEnCours = {};
+  bool get _isProprietaire => _role == 'proprietaire';
 
-  bool get isProprietaire => role == 'proprietaire';
+  static const List<_DestinationItem> _destinationsSuggestion = [
+    _DestinationItem(
+      nom: 'Tunis',
+      sousTitre: 'Cœur de ville & médina',
+      icone: Icons.location_city_outlined,
+    ),
+    _DestinationItem(
+      nom: 'La Marsa',
+      sousTitre: 'Bord de mer & détente',
+      icone: Icons.beach_access_outlined,
+    ),
+    _DestinationItem(
+      nom: 'Sousse',
+      sousTitre: 'Ambiance côtière',
+      icone: Icons.wb_sunny_outlined,
+    ),
+    _DestinationItem(
+      nom: 'Djerba',
+      sousTitre: 'Charme insulaire',
+      icone: Icons.villa_outlined,
+    ),
+  ];
 
   @override
   void initState() {
     super.initState();
-
-    logementsFuture = LogementService.getLogements();
-
-    chargerRole();
-    chargerMessagesNonLus();
+    _logementsFuture = LogementService.getLogements();
+    _chargerRole();
+    _chargerMessagesNonLus();
   }
 
-  // Charger le rôle et la photo de profil.
-  Future<void> chargerRole() async {
-    final prefs = await SharedPreferences.getInstance();
+  @override
+  void dispose() {
+    _rechercheController.dispose();
+    super.dispose();
+  }
 
+  // ===========================================================================
+  // CHARGEMENT DES DONNÉES
+  // ===========================================================================
+  Future<void> _chargerRole() async {
+    final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
 
     final nouveauRole =
         (prefs.getString('role') ?? '').toLowerCase();
-
     final photo = prefs.getString('profile_photo');
 
     setState(() {
-      role = nouveauRole;
-      profilePhotoUrl = photo;
+      _role = nouveauRole;
+      _profilePhotoUrl = photo;
     });
 
     if (nouveauRole != 'proprietaire') {
-      await chargerFavoris();
+      await _chargerFavoris();
     }
   }
 
-  // Charger le nombre total de messages non lus.
-  Future<void> chargerMessagesNonLus() async {
+  Future<void> _chargerMessagesNonLus() async {
     try {
       final liste = await MessagerieService.getConversations();
-
       int total = 0;
 
       for (final conversation in liste) {
         if (conversation is! Map) continue;
-
         final valeur = conversation['messages_non_lus'];
-
         if (valeur is num) {
           total += valeur.toInt();
         } else {
-          total += int.tryParse(
-                valeur?.toString() ?? '',
-              ) ??
-              0;
+          total += int.tryParse(valeur?.toString() ?? '') ?? 0;
         }
       }
 
       if (!mounted) return;
-
-      setState(() {
-        totalMessagesNonLus = total;
-      });
+      setState(() => _totalMessagesNonLus = total);
     } catch (e) {
-      debugPrint(
-        'Erreur chargement messages non lus : $e',
-      );
+      debugPrint('Erreur chargement messages non lus : $e');
     }
   }
 
-  // Construire l'icône de messagerie avec son badge.
-  Widget construireIconeMessagerie() {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        const Icon(
-          Icons.chat_bubble_outline,
-          size: 27,
-          color: Colors.white,
-        ),
-        if (totalMessagesNonLus > 0)
-          Positioned(
-            right: -9,
-            top: -8,
-            child: Container(
-              constraints: const BoxConstraints(
-                minWidth: 19,
-                minHeight: 19,
-              ),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 4,
-                vertical: 2,
-              ),
-              decoration: const BoxDecoration(
-                color: Colors.red,
-                shape: BoxShape.circle,
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                totalMessagesNonLus > 99
-                    ? '99+'
-                    : totalMessagesNonLus.toString(),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  // Ouvrir les conversations et actualiser le badge au retour.
-  Future<void> ouvrirConversations() async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const ConversationsScreen(),
-      ),
-    );
-
-    if (!mounted) return;
-
-    await chargerMessagesNonLus();
-  }
-
-  // Récupérer les favoris déjà enregistrés.
-  Future<void> chargerFavoris() async {
+  Future<void> _chargerFavoris() async {
     try {
       final liste = await FavoriService.getFavoris();
-
       final Map<int, int> nouveauxFavoris = {};
 
       for (final favori in liste) {
@@ -184,7 +150,6 @@ class _LogementListScreenState extends State<LogementListScreen> {
         final logement = favori['logement'];
 
         int? logementId;
-
         if (logement is Map) {
           logementId = logement['id'] is num
               ? (logement['id'] as num).toInt()
@@ -205,9 +170,8 @@ class _LogementListScreenState extends State<LogementListScreen> {
       }
 
       if (!mounted) return;
-
       setState(() {
-        favoris
+        _favoris
           ..clear()
           ..addAll(nouveauxFavoris);
       });
@@ -216,28 +180,29 @@ class _LogementListScreenState extends State<LogementListScreen> {
     }
   }
 
-  // Ajouter ou retirer un favori.
-  Future<void> toggleFavori(int logementId) async {
-    if (favorisEnCours.contains(logementId)) return;
-
+  void _rechargerLogements() {
     setState(() {
-      favorisEnCours.add(logementId);
+      _selectedRange = null;
+      _logementsFuture = LogementService.getLogements();
     });
+  }
+
+  // ===========================================================================
+  // ACTIONS MÉTIER
+  // ===========================================================================
+  Future<void> _toggleFavori(int logementId) async {
+    if (_favorisEnCours.contains(logementId)) return;
+
+    setState(() => _favorisEnCours.add(logementId));
 
     try {
-      if (favoris.containsKey(logementId)) {
-        final favoriId = favoris[logementId]!;
-
-        final succes =
-            await FavoriService.deleteFavori(favoriId);
+      if (_favoris.containsKey(logementId)) {
+        final favoriId = _favoris[logementId]!;
+        final succes = await FavoriService.deleteFavori(favoriId);
 
         if (succes) {
           if (!mounted) return;
-
-          setState(() {
-            favoris.remove(logementId);
-          });
-
+          setState(() => _favoris.remove(logementId));
           await CustomPopup.showSuccessPopup(
             context: context,
             title: 'Favoris',
@@ -245,49 +210,76 @@ class _LogementListScreenState extends State<LogementListScreen> {
           );
         }
       } else {
-        final succes =
-            await FavoriService.addFavori(logementId);
+        final succes = await FavoriService.addFavori(logementId);
 
         if (succes) {
-          await chargerFavoris();
-
+          await _chargerFavoris();
           if (!mounted) return;
-
           await CustomPopup.showSuccessPopup(
             context: context,
             title: 'Favoris',
-            message:
-                'Logement ajouté aux favoris avec succès !',
+            message: 'Logement ajouté aux favoris avec succès !',
           );
         }
       }
     } catch (e) {
       if (!mounted) return;
-
       await CustomPopup.showErrorPopup(
         context: context,
         title: 'Erreur',
-        message:
-            'Erreur lors de la modification du favori.',
+        message: 'Erreur lors de la modification du favori.',
       );
     } finally {
       if (mounted) {
-        setState(() {
-          favorisEnCours.remove(logementId);
-        });
+        setState(() => _favorisEnCours.remove(logementId));
       }
     }
   }
 
-  void rechargerLogements() {
-    setState(() {
-      selectedRange = null;
-      logementsFuture = LogementService.getLogements();
-    });
+  Future<void> _ouvrirConversations() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const ConversationsScreen(),
+      ),
+    );
+    if (!mounted) return;
+    await _chargerMessagesNonLus();
   }
 
-  // Ouvrir l'écran d'ajout d'un logement.
-  Future<void> ouvrirAjout() async {
+  Future<void> _ouvrirFavorisOuReservations() async {
+    if (_isProprietaire) {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const GestionReservationsScreen(),
+        ),
+      );
+      return;
+    }
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const MesFavorisScreen(),
+      ),
+    );
+    if (!mounted) return;
+    await _chargerFavoris();
+  }
+
+  Future<void> _ouvrirMesReservations() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _isProprietaire
+            ? const GestionReservationsScreen()
+            : const MesReservationsScreen(),
+      ),
+    );
+  }
+
+  Future<void> _ouvrirAjout() async {
     final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
@@ -298,26 +290,23 @@ class _LogementListScreenState extends State<LogementListScreen> {
     if (!mounted) return;
 
     if (result == true) {
-      rechargerLogements();
-
+      _rechargerLogements();
       await CustomPopup.showSuccessPopup(
         context: context,
         title: 'Logement ajouté',
-        message:
-            'Votre logement a été ajouté avec succès !',
+        message: 'Votre logement a été ajouté avec succès !',
       );
     }
   }
 
-  // Filtrer et trier les logements.
-  List<Logement> filtrerLogements(
+  List<Logement> _filtrerLogements(
     List<Logement> data,
     RangeValues range,
   ) {
-    final resultat = data.where((logement) {
-      final texte = recherche.toLowerCase();
+    final texte = _recherche.trim().toLowerCase();
 
-      final correspondRecherche =
+    final resultat = data.where((logement) {
+      final correspondRecherche = texte.isEmpty ||
           logement.titre.toLowerCase().contains(texte) ||
           logement.adresse.toLowerCase().contains(texte);
 
@@ -325,24 +314,24 @@ class _LogementListScreenState extends State<LogementListScreen> {
           logement.prix >= range.start &&
           logement.prix <= range.end;
 
-      return correspondRecherche && correspondPrix;
+      final correspondCategorie = _categorieActive != 2 ||
+          logement.photos.isNotEmpty;
+
+      return correspondRecherche &&
+          correspondPrix &&
+          correspondCategorie;
     }).toList();
 
-    if (ordrePrix == 1) {
-      resultat.sort(
-        (a, b) => a.prix.compareTo(b.prix),
-      );
-    } else if (ordrePrix == 2) {
-      resultat.sort(
-        (a, b) => b.prix.compareTo(a.prix),
-      );
+    if (_ordrePrix == 1) {
+      resultat.sort((a, b) => a.prix.compareTo(b.prix));
+    } else if (_ordrePrix == 2) {
+      resultat.sort((a, b) => b.prix.compareTo(a.prix));
     }
 
     return resultat;
   }
 
-  // Confirmer la déconnexion.
-  Future<void> retournerLogin() async {
+  Future<void> _retournerLogin() async {
     final confirmer = await CustomPopup.showConfirmPopup(
       context: context,
       title: 'Déconnexion',
@@ -351,674 +340,943 @@ class _LogementListScreenState extends State<LogementListScreen> {
       cancelText: 'Annuler',
     );
 
-    if (confirmer) {
-      if (!mounted) return;
+    if (!confirmer || !mounted) return;
 
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const LoginScreen(),
-        ),
-        (route) => false,
-      );
-    }
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const LoginScreen(),
+      ),
+      (route) => false,
+    );
   }
 
-  @override
-  void dispose() {
-    rechercheController.dispose();
-    super.dispose();
+  String _formatPrix(double montant) {
+    return montant % 1 == 0
+        ? '${montant.toStringAsFixed(0)} DT'
+        : '${montant.toStringAsFixed(2)} DT';
+  }
+
+  // ===========================================================================
+  // COMPOSANTS UI
+  // ===========================================================================
+  Widget _construireBarreRechercheEtFiltres({
+    required double minPrix,
+    required double sliderMax,
+    required RangeValues range,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Barre de recherche flottante type capsule
+          Container(
+            decoration: BoxDecoration(
+              color: _surfaceClaire,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: _sableClair),
+              boxShadow: [
+                BoxShadow(
+                  color: _vertSapin.withValues(alpha: 0.06),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: TextField(
+              controller: _rechercheController,
+              style: const TextStyle(
+                color: _textePrincipal,
+                fontWeight: FontWeight.w500,
+              ),
+              onChanged: (value) => setState(() => _recherche = value),
+              decoration: InputDecoration(
+                hintText: 'Commencer ma recherche',
+                hintStyle: const TextStyle(
+                  color: _textePrincipal,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                ),
+                prefixIcon: const Icon(
+                  Icons.search,
+                  color: _vertSapin,
+                  size: 22,
+                ),
+                suffixIcon: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_recherche.isNotEmpty)
+                      IconButton(
+                        tooltip: 'Effacer',
+                        icon: const Icon(
+                          Icons.close,
+                          color: _texteSecondaire,
+                          size: 18,
+                        ),
+                        onPressed: () {
+                          _rechercheController.clear();
+                          setState(() => _recherche = '');
+                        },
+                      ),
+                    IconButton(
+                      tooltip: 'Filtrer par prix',
+                      icon: Icon(
+                        Icons.tune_rounded,
+                        color: _afficherFiltrePrix
+                            ? _vertSapin
+                            : _brunTerre,
+                        size: 20,
+                      ),
+                      onPressed: () {
+                        setState(
+                          () => _afficherFiltrePrix = !_afficherFiltrePrix,
+                        );
+                      },
+                    ),
+                  ],
+                ),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          // Onglets rapides horizontaux (Tout voir / Logements / Populaires)
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _PuceCategorie(
+                  label: 'Tout voir',
+                  icon: Icons.public,
+                  selected: _categorieActive == 0,
+                  onTap: () => setState(() => _categorieActive = 0),
+                ),
+                const SizedBox(width: 10),
+                _PuceCategorie(
+                  label: 'Logements',
+                  icon: Icons.home_work_outlined,
+                  selected: _categorieActive == 1,
+                  onTap: () => setState(() => _categorieActive = 1),
+                ),
+                const SizedBox(width: 10),
+                _PuceCategorie(
+                  label: 'Avec photos',
+                  icon: Icons.photo_library_outlined,
+                  selected: _categorieActive == 2,
+                  onTap: () => setState(() => _categorieActive = 2),
+                ),
+              ],
+            ),
+          ),
+
+          // Panneau filtre prix (affiché au clic sur l'icône filtre)
+          if (_afficherFiltrePrix) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+              decoration: BoxDecoration(
+                color: _surfaceClaire,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: _sableClair),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Fourchette de prix (DT)',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: _vertSapin,
+                          fontSize: 13,
+                        ),
+                      ),
+                      Text(
+                        '${range.start.toStringAsFixed(0)} - ${range.end.toStringAsFixed(0)} DT',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: _texteSecondaire,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      activeTrackColor: _vertSapin,
+                      inactiveTrackColor: _sableClair,
+                      thumbColor: _vertSapin,
+                      overlayColor: _vertSapin.withValues(alpha: 0.12),
+                      valueIndicatorColor: _vertSapin,
+                    ),
+                    child: RangeSlider(
+                      values: range,
+                      min: minPrix,
+                      max: sliderMax,
+                      divisions: sliderMax > minPrix ? 100 : null,
+                      labels: RangeLabels(
+                        range.start.toStringAsFixed(0),
+                        range.end.toStringAsFixed(0),
+                      ),
+                      onChanged: (values) {
+                        setState(() => _selectedRange = values);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _construireSectionDestinations() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 12, 16, 10),
+          child: Text(
+            'Destinations pour vous',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: _textePrincipal,
+            ),
+          ),
+        ),
+        SizedBox(
+          height: 158,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: _destinationsSuggestion.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (_, index) {
+              final dest = _destinationsSuggestion[index];
+              final actif =
+                  _recherche.trim().toLowerCase() ==
+                      dest.nom.toLowerCase();
+
+              return InkWell(
+                borderRadius: BorderRadius.circular(18),
+                onTap: () {
+                  final nouveauTexte = actif ? '' : dest.nom;
+                  _rechercheController.text = nouveauTexte;
+                  setState(() => _recherche = nouveauTexte);
+                },
+                child: SizedBox(
+                  width: 124,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        height: 104,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: actif ? _vertSapin : _surfaceClaire,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: actif ? _vertSapin : _sableClair,
+                            width: actif ? 1.5 : 1,
+                          ),
+                        ),
+                        child: Center(
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: actif
+                                  ? Colors.white.withValues(alpha: 0.16)
+                                  : _sableClair,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              dest.icone,
+                              size: 28,
+                              color:
+                                  actif ? Colors.white : _vertSapin,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 7),
+                      Text(
+                        dest.nom,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                          color: _textePrincipal,
+                        ),
+                      ),
+                      Text(
+                        dest.sousTitre,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: _texteSecondaire,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _construireTitreSectionLogements(int count) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              _isProprietaire
+                  ? 'Mes logements ($count)'
+                  : 'Logements populaires ($count)',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: _textePrincipal,
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: _surfaceClaire,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _sableClair),
+            ),
+            child: DropdownButton<int>(
+              value: _ordrePrix,
+              underline: const SizedBox(),
+              icon: const Icon(
+                Icons.arrow_forward,
+                size: 16,
+                color: _vertSapin,
+              ),
+              style: const TextStyle(
+                color: _textePrincipal,
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+              ),
+              items: const [
+                DropdownMenuItem(value: 0, child: Text('Tri')),
+                DropdownMenuItem(
+                  value: 1,
+                  child: Text('Prix ↑'),
+                ),
+                DropdownMenuItem(
+                  value: 2,
+                  child: Text('Prix ↓'),
+                ),
+              ],
+              onChanged: (value) {
+                setState(() => _ordrePrix = value ?? 0);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _construireCarteGrille(Logement logement) {
+    final estFavori = _favoris.containsKey(logement.id);
+    final chargement = _favorisEnCours.contains(logement.id);
+    final photoPrincipale =
+        logement.photos.isNotEmpty ? logement.photos.first : null;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: () async {
+        final result = await Navigator.push<bool>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => LogementDetailScreen(
+              logement: logement,
+              isProprietaire: _isProprietaire,
+            ),
+          ),
+        );
+
+        if (!mounted) return;
+        if (result == true) {
+          _rechargerLogements();
+        }
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Image carrée arrondie avec badge en haut à gauche et cœur en haut à droite
+          AspectRatio(
+            aspectRatio: 1,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (photoPrincipale != null)
+                    Image.network(
+                      photoPrincipale,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (_, child, progress) {
+                        if (progress == null) return child;
+                        return const ColoredBox(
+                          color: _sableClair,
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              color: _vertSapin,
+                              strokeWidth: 2,
+                            ),
+                          ),
+                        );
+                      },
+                      errorBuilder: (_, __, ___) => const ColoredBox(
+                        color: _sableClair,
+                        child: Icon(
+                          Icons.home_work_outlined,
+                          color: _vertSapin,
+                          size: 40,
+                        ),
+                      ),
+                    )
+                  else
+                    const ColoredBox(
+                      color: _sableClair,
+                      child: Icon(
+                        Icons.home_work_outlined,
+                        color: _vertSapin,
+                        size: 40,
+                      ),
+                    ),
+
+                  // Badge type maquette
+                  Positioned(
+                    top: 10,
+                    left: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _surfaceClaire.withValues(alpha: 0.94),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: _sableClair),
+                      ),
+                      child: const Text(
+                        'Coup de cœur',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: _vertSapin,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Bouton favori en haut à droite
+                  if (!_isProprietaire)
+                    Positioned(
+                      top: 6,
+                      right: 6,
+                      child: Material(
+                        color: _vertSapin.withValues(alpha: 0.45),
+                        shape: const CircleBorder(),
+                        child: InkWell(
+                          customBorder: const CircleBorder(),
+                          onTap: chargement
+                              ? null
+                              : () => _toggleFavori(logement.id),
+                          child: SizedBox(
+                            width: 34,
+                            height: 34,
+                            child: Center(
+                              child: chargement
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child:
+                                          CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : Icon(
+                                      estFavori
+                                          ? Icons.favorite
+                                          : Icons.favorite_border,
+                                      color: estFavori
+                                          ? _rougeErreur
+                                          : Colors.white,
+                                      size: 19,
+                                    ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          Text(
+            logement.titre,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+              color: _textePrincipal,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            logement.adresse,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 12,
+              color: _texteSecondaire,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _formatPrix(logement.prix),
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+              color: _vertSapin,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _construireBarreNavigationBas() {
+    return Container(
+      decoration: const BoxDecoration(
+        color: _surfaceClaire,
+        border: Border(
+          top: BorderSide(color: _sableClair),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _ItemBarreBas(
+                label: 'Explorer',
+                icon: Icons.search,
+                actif: _ongletBas == 0,
+                onTap: () => setState(() => _ongletBas = 0),
+              ),
+              _ItemBarreBas(
+                label: _isProprietaire ? 'Réservations' : 'Favoris',
+                icon: _isProprietaire
+                    ? Icons.event_note_outlined
+                    : Icons.favorite_border,
+                actif: _ongletBas == 1,
+                onTap: () async {
+                  setState(() => _ongletBas = 1);
+                  await _ouvrirFavorisOuReservations();
+                  if (!mounted) return;
+                  setState(() => _ongletBas = 0);
+                },
+              ),
+              if (!_isProprietaire)
+                _ItemBarreBas(
+                  label: 'Séjours',
+                  icon: Icons.calendar_month_outlined,
+                  actif: _ongletBas == 2,
+                  onTap: () async {
+                    setState(() => _ongletBas = 2);
+                    await _ouvrirMesReservations();
+                    if (!mounted) return;
+                    setState(() => _ongletBas = 0);
+                  },
+                ),
+              _ItemBarreBas(
+                label: 'Messages',
+                icon: Icons.chat_bubble_outline,
+                actif: _ongletBas == 3,
+                badge: _totalMessagesNonLus,
+                onTap: () async {
+                  setState(() => _ongletBas = 3);
+                  await _ouvrirConversations();
+                  if (!mounted) return;
+                  setState(() => _ongletBas = 0);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    const violet = Color(0xFF6C4AB6);
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F6FA),
-
+      backgroundColor: _fondCreme,
       appBar: AppBar(
-        backgroundColor: violet,
-        foregroundColor: Colors.white,
+        backgroundColor: _fondCreme,
+        foregroundColor: _vertSapin,
         elevation: 0,
-        title: Text(
-          isProprietaire
-              ? 'Mes logements'
-              : 'Découvrir les logements',
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
+        scrolledUnderElevation: 0,
+        title: const Text(
+          'DariGo',
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            fontSize: 22,
           ),
         ),
         actions: [
-          if (!isProprietaire)
-            IconButton(
-              tooltip: 'Mes réservations',
-              icon: const Icon(Icons.calendar_month),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        const MesReservationsScreen(),
-                  ),
-                );
-              },
-            ),
-
-          // Messagerie avec compteur de messages non lus.
-          IconButton(
-            tooltip: 'Mes conversations',
-            icon: construireIconeMessagerie(),
-            onPressed: ouvrirConversations,
-          ),
-
-          if (!isProprietaire)
-            IconButton(
-              tooltip: 'Mes favoris',
-              icon: const Icon(
-                Icons.favorite,
-                color: Colors.red,
-              ),
-              onPressed: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        const MesFavorisScreen(),
-                  ),
-                );
-
-                if (!mounted) return;
-
-                await chargerFavoris();
-              },
-            ),
-
-          if (isProprietaire)
-            IconButton(
-              tooltip: 'Gérer les réservations',
-              icon: const Icon(Icons.event_note),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        const GestionReservationsScreen(),
-                  ),
-                );
-              },
-            ),
-
-          // Photo de profil.
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
             child: CircleAvatar(
-              radius: 18,
-              backgroundColor: Colors.white,
+              radius: 17,
+              backgroundColor: _sableClair,
               child: ClipOval(
-                child: profilePhotoUrl != null &&
-                        profilePhotoUrl!.isNotEmpty
+                child: _profilePhotoUrl != null &&
+                        _profilePhotoUrl!.isNotEmpty
                     ? Image.network(
-                        profilePhotoUrl!,
-                        width: 36,
-                        height: 36,
+                        _profilePhotoUrl!,
+                        width: 34,
+                        height: 34,
                         fit: BoxFit.cover,
-                        errorBuilder:
-                            (context, error, stackTrace) {
-                          return const Icon(
-                            Icons.person,
-                            color: violet,
-                            size: 25,
-                          );
-                        },
+                        errorBuilder: (_, __, ___) => const Icon(
+                          Icons.person_outline,
+                          color: _vertSapin,
+                          size: 20,
+                        ),
                       )
                     : const Icon(
-                        Icons.person,
-                        color: violet,
-                        size: 25,
+                        Icons.person_outline,
+                        color: _vertSapin,
+                        size: 20,
                       ),
               ),
             ),
           ),
-
-          // Déconnexion.
           IconButton(
             tooltip: 'Déconnexion',
-            onPressed: retournerLogin,
+            onPressed: _retournerLogin,
             icon: const Icon(Icons.logout),
           ),
         ],
       ),
-
-      floatingActionButton: isProprietaire
+      floatingActionButton: _isProprietaire
           ? FloatingActionButton.extended(
-              onPressed: ouvrirAjout,
-              backgroundColor: violet,
+              onPressed: _ouvrirAjout,
+              backgroundColor: _vertSapin,
               foregroundColor: Colors.white,
               icon: const Icon(Icons.add),
-              label: const Text('Ajouter'),
+              label: const Text(
+                'Ajouter',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
             )
           : null,
-
-      body: FutureBuilder<List<Logement>>(
-        future: logementsFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState ==
-              ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(
-                color: violet,
-              ),
-            );
-          }
-
-          if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.error_outline,
-                      color: Colors.red,
-                      size: 45,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Erreur : ${snapshot.error}',
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 15),
-                    ElevatedButton(
-                      onPressed: rechargerLogements,
-                      child: const Text('Réessayer'),
-                    ),
-                  ],
+      bottomNavigationBar: _construireBarreNavigationBas(),
+      body: SafeArea(
+        child: FutureBuilder<List<Logement>>(
+          future: _logementsFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState ==
+                ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(
+                  color: _vertSapin,
                 ),
-              ),
-            );
-          }
+              );
+            }
 
-          final data = snapshot.data ?? [];
-
-          if (data.isEmpty) {
-            return const Center(
-              child: Text(
-                'Aucun logement disponible',
-                style: TextStyle(fontSize: 17),
-              ),
-            );
-          }
-
-          final prix = data.map((e) => e.prix).toList();
-
-          final minPrix =
-              prix.reduce((a, b) => a < b ? a : b);
-
-          final maxPrix =
-              prix.reduce((a, b) => a > b ? a : b);
-
-          final sliderMax =
-              maxPrix == minPrix ? minPrix + 1 : maxPrix;
-
-          final range = selectedRange ??
-              RangeValues(minPrix, sliderMax);
-
-          final logementsFiltres =
-              filtrerLogements(data, range);
-
-          return Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final rechercheWidget = TextField(
-                      controller: rechercheController,
-                      onChanged: (value) {
-                        setState(() {
-                          recherche = value;
-                        });
-                      },
-                      decoration: InputDecoration(
-                        hintText:
-                            'Rechercher un logement...',
-                        prefixIcon: const Icon(
-                          Icons.search,
-                          color: violet,
-                        ),
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(
-                          borderRadius:
-                              BorderRadius.circular(14),
-                          borderSide: BorderSide.none,
+            if (snapshot.hasError) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        color: _rougeErreur,
+                        size: 44,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Erreur : ${snapshot.error}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: _textePrincipal,
                         ),
                       ),
-                    );
-
-                    final filtreWidget = Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.end,
-                      children: [
-                        const Text(
-                          'Prix (DT)',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: violet,
+                      const SizedBox(height: 14),
+                      ElevatedButton(
+                        onPressed: _rechargerLogements,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _vertSapin,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
                           ),
                         ),
-                        RangeSlider(
-                          values: range,
-                          min: minPrix,
-                          max: sliderMax,
-                          divisions:
-                              sliderMax > minPrix ? 100 : null,
-                          activeColor: violet,
-                          labels: RangeLabels(
-                            range.start.toStringAsFixed(0),
-                            range.end.toStringAsFixed(0),
-                          ),
-                          onChanged: (values) {
-                            setState(() {
-                              selectedRange = values;
-                            });
-                          },
-                        ),
-                        Text(
-                          '${range.start.toStringAsFixed(0)} - '
-                          '${range.end.toStringAsFixed(0)} DT',
-                          style:
-                              const TextStyle(fontSize: 12),
-                        ),
-                      ],
-                    );
-
-                    if (constraints.maxWidth >= 600) {
-                      return Row(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.center,
-                        children: [
-                          Expanded(
-                            child: rechercheWidget,
-                          ),
-                          const SizedBox(width: 20),
-                          SizedBox(
-                            width: 230,
-                            child: filtreWidget,
-                          ),
-                        ],
-                      );
-                    }
-
-                    return Column(
-                      children: [
-                        rechercheWidget,
-                        const SizedBox(height: 12),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: SizedBox(
-                            width: 230,
-                            child: filtreWidget,
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                ),
-                child: Row(
-                  children: [
-                    Text(
-                      '${logementsFiltres.length} logement(s)',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                        child: const Text('Réessayer'),
                       ),
-                    ),
-                    const Spacer(),
-                    DropdownButton<int>(
-                      value: ordrePrix,
-                      underline: const SizedBox(),
-                      items: const [
-                        DropdownMenuItem(
-                          value: 0,
-                          child: Text('Par défaut'),
-                        ),
-                        DropdownMenuItem(
-                          value: 1,
-                          child: Text('Prix croissant'),
-                        ),
-                        DropdownMenuItem(
-                          value: 2,
-                          child: Text('Prix décroissant'),
-                        ),
-                      ],
-                      onChanged: (value) {
-                        setState(() {
-                          ordrePrix = value ?? 0;
-                        });
-                      },
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
+              );
+            }
 
-              Expanded(
-                child: logementsFiltres.isEmpty
-                    ? const Center(
+            final data = snapshot.data ?? [];
+
+            if (data.isEmpty) {
+              return const Center(
+                child: Text(
+                  'Aucun logement disponible',
+                  style: TextStyle(
+                    fontSize: 17,
+                    color: _texteSecondaire,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              );
+            }
+
+            final prix = data.map((e) => e.prix).toList();
+            final minPrix = prix.reduce((a, b) => a < b ? a : b);
+            final maxPrix = prix.reduce((a, b) => a > b ? a : b);
+            final sliderMax = maxPrix == minPrix ? minPrix + 1 : maxPrix;
+            final range =
+                _selectedRange ?? RangeValues(minPrix, sliderMax);
+
+            final logementsFiltres = _filtrerLogements(data, range);
+
+            return CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: _construireBarreRechercheEtFiltres(
+                    minPrix: minPrix,
+                    sliderMax: sliderMax,
+                    range: range,
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: _construireSectionDestinations(),
+                ),
+                SliverToBoxAdapter(
+                  child: _construireTitreSectionLogements(
+                    logementsFiltres.length,
+                  ),
+                ),
+                if (logementsFiltres.isEmpty)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(24),
                         child: Text(
                           'Aucun logement ne correspond aux filtres',
+                          style: TextStyle(color: _texteSecondaire),
                         ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(
-                          12,
-                          4,
-                          12,
-                          90,
-                        ),
-                        itemCount: logementsFiltres.length,
-                        itemBuilder: (context, index) {
-                          final logement =
-                              logementsFiltres[index];
-
-                          final estFavori =
-                              favoris.containsKey(logement.id);
-
-                          final chargement =
-                              favorisEnCours.contains(logement.id);
-
-                          return Card(
-                            color: Colors.white,
-                            elevation: 2,
-                            margin: const EdgeInsets.symmetric(
-                              vertical: 7,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.circular(16),
-                            ),
-                            child: Stack(
-                              children: [
-                                InkWell(
-                                  borderRadius:
-                                      BorderRadius.circular(16),
-                                  onTap: () async {
-                                    final result =
-                                        await Navigator.push<bool>(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) =>
-                                            LogementDetailScreen(
-                                          logement: logement,
-                                          isProprietaire:
-                                              isProprietaire,
-                                        ),
-                                      ),
-                                    );
-
-                                    if (!mounted) return;
-
-                                    if (result == true) {
-                                      rechargerLogements();
-                                    }
-                                  },
-                                  child: Padding(
-                                    padding:
-                                        const EdgeInsets.fromLTRB(
-                                      15,
-                                      15,
-                                      55,
-                                      15,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        // Galerie photos du logement.
-                                        _PhotosLogement(
-                                          photos: logement.photos,
-                                        ),
-
-                                        const SizedBox(width: 12),
-
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                logement.titre,
-                                                style:
-                                                    const TextStyle(
-                                                  fontWeight:
-                                                      FontWeight.bold,
-                                                  fontSize: 15,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 6),
-                                              Text(
-                                                logement.adresse,
-                                                style:
-                                                    const TextStyle(
-                                                  color: Colors.black54,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Text(
-                                                '${logement.prix.toStringAsFixed(0)} DT',
-                                                style:
-                                                    const TextStyle(
-                                                  color: violet,
-                                                  fontWeight:
-                                                      FontWeight.bold,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-
-                                // Bouton favori.
-                                if (!isProprietaire)
-                                  Positioned(
-                                    top: 4,
-                                    right: 4,
-                                    child: IconButton(
-                                      tooltip: estFavori
-                                          ? 'Retirer des favoris'
-                                          : 'Ajouter aux favoris',
-                                      onPressed: chargement
-                                          ? null
-                                          : () => toggleFavori(
-                                                logement.id,
-                                              ),
-                                      icon: chargement
-                                          ? const SizedBox(
-                                              width: 20,
-                                              height: 20,
-                                              child:
-                                                  CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                              ),
-                                            )
-                                          : Icon(
-                                              estFavori
-                                                  ? Icons.favorite
-                                                  : Icons.favorite_border,
-                                              color: estFavori
-                                                  ? Colors.red
-                                                  : Colors.grey,
-                                              size: 27,
-                                            ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          );
-                        },
                       ),
-              ),
-            ],
-          );
-        },
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 92),
+                    sliver: SliverGrid(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 14,
+                        mainAxisSpacing: 18,
+                        childAspectRatio: 0.72,
+                      ),
+                      delegate: SliverChildBuilderDelegate(
+                        (_, index) =>
+                            _construireCarteGrille(logementsFiltres[index]),
+                        childCount: logementsFiltres.length,
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
 }
 
-// ======================================================
-// WIDGET GALERIE PHOTOS
-// ======================================================
+// =============================================================================
+// SOUS-COMPOSANTS
+// =============================================================================
+class _DestinationItem {
+  final String nom;
+  final String sousTitre;
+  final IconData icone;
 
-class _PhotosLogement extends StatefulWidget {
-  final List<String> photos;
+  const _DestinationItem({
+    required this.nom,
+    required this.sousTitre,
+    required this.icone,
+  });
+}
 
-  const _PhotosLogement({
-    required this.photos,
+class _PuceCategorie extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _PuceCategorie({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
   });
 
   @override
-  State<_PhotosLogement> createState() =>
-      _PhotosLogementState();
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(999),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: selected
+              ? _LogementListScreenState._vertSapin
+              : _LogementListScreenState._surfaceClaire,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: selected
+                ? _LogementListScreenState._vertSapin
+                : _LogementListScreenState._sableClair,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 17,
+              color: selected
+                  ? Colors.white
+                  : _LogementListScreenState._vertSapin,
+            ),
+            const SizedBox(width: 7),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: selected
+                    ? Colors.white
+                    : _LogementListScreenState._textePrincipal,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-class _PhotosLogementState extends State<_PhotosLogement> {
-  int photoActuelle = 0;
+class _ItemBarreBas extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool actif;
+  final int badge;
+  final VoidCallback onTap;
+
+  const _ItemBarreBas({
+    required this.label,
+    required this.icon,
+    required this.actif,
+    this.badge = 0,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    const violet = Color(0xFF6C4AB6);
+    final couleur = actif
+        ? _LogementListScreenState._vertSapin
+        : _LogementListScreenState._texteSecondaire;
 
-    if (widget.photos.isEmpty) {
-      return Container(
-        width: 125,
-        height: 110,
-        decoration: BoxDecoration(
-          color: violet.withOpacity(0.10),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: const Icon(
-          Icons.home_outlined,
-          color: violet,
-          size: 40,
-        ),
-      );
-    }
-
-    return SizedBox(
-      width: 125,
-      height: 110,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Stack(
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            PageView.builder(
-              itemCount: widget.photos.length,
-              onPageChanged: (index) {
-                setState(() {
-                  photoActuelle = index;
-                });
-              },
-              itemBuilder: (context, index) {
-                return Image.network(
-                  widget.photos[index],
-                  width: 125,
-                  height: 110,
-                  fit: BoxFit.cover,
-                  loadingBuilder:
-                      (context, child, loadingProgress) {
-                    if (loadingProgress == null) {
-                      return child;
-                    }
-
-                    return Container(
-                      color: violet.withOpacity(0.10),
-                      child: const Center(
-                        child: CircularProgressIndicator(
-                          color: violet,
-                          strokeWidth: 2,
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(icon, color: couleur, size: 22),
+                if (badge > 0)
+                  Positioned(
+                    right: -8,
+                    top: -6,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 1,
+                      ),
+                      decoration: const BoxDecoration(
+                        color: _LogementListScreenState._rougeErreur,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        badge > 99 ? '99+' : badge.toString(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
-                    );
-                  },
-                  errorBuilder:
-                      (context, error, stackTrace) {
-                    return Container(
-                      color: violet.withOpacity(0.10),
-                      child: const Icon(
-                        Icons.broken_image_outlined,
-                        color: violet,
-                        size: 35,
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-
-            // Indicateurs des photos.
-            if (widget.photos.length > 1)
-              Positioned(
-                bottom: 6,
-                left: 0,
-                right: 0,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(
-                    widget.photos.length,
-                    (index) {
-                      return Container(
-                        margin: const EdgeInsets.symmetric(
-                          horizontal: 2,
-                        ),
-                        width: photoActuelle == index ? 8 : 5,
-                        height: 5,
-                        decoration: BoxDecoration(
-                          color: photoActuelle == index
-                              ? Colors.white
-                              : Colors.white.withOpacity(0.55),
-                          borderRadius:
-                              BorderRadius.circular(10),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-
-            // Nombre de photos.
-            if (widget.photos.length > 1)
-              Positioned(
-                top: 5,
-                right: 5,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black54,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    '${photoActuelle + 1}/${widget.photos.length}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                ),
+              ],
+            ),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: actif ? FontWeight.w700 : FontWeight.w500,
+                color: couleur,
               ),
+            ),
           ],
         ),
       ),
