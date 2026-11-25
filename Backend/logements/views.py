@@ -1,16 +1,19 @@
 
 from rest_framework import generics, permissions
 from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+
 from django.db import transaction
-from .models import Favori
-from .serializers import FavoriSerializer
+from django.shortcuts import get_object_or_404
+
 from .models import (
     Logement,
+    PhotoLogement,
     Reservation,
     Favori,
     Avis,
 )
-from django.shortcuts import get_object_or_404
+
 from .serializers import (
     LogementSerializer,
     ReservationSerializer,
@@ -19,10 +22,25 @@ from .serializers import (
     AvisSerializer,
 )
 
+import json
+from rest_framework.response import Response
+# ==========================================
+# LOGEMENTS
+# ==========================================
 
 class LogementListCreateView(generics.ListCreateAPIView):
+
     serializer_class = LogementSerializer
-    permission_classes = [permissions.IsAuthenticated]
+
+    permission_classes = [
+        permissions.IsAuthenticated
+    ]
+
+    parser_classes = [
+        MultiPartParser,
+        FormParser,
+        JSONParser,
+    ]
 
     def get_queryset(self):
 
@@ -31,29 +49,151 @@ class LogementListCreateView(generics.ListCreateAPIView):
         if user.role == 'proprietaire':
             return Logement.objects.filter(
                 proprietaire=user
+            ).prefetch_related('photos')
+
+        return Logement.objects.all().prefetch_related('photos')
+
+    @transaction.atomic
+    def perform_create(self, serializer):
+
+        photos = self.request.FILES.getlist('photos')
+
+        if len(photos) > 10:
+            raise ValidationError(
+                "Vous pouvez ajouter au maximum 10 photos."
             )
 
-        return Logement.objects.all()
-
-    def perform_create(self, serializer):
-        serializer.save(
+        # Création du logement
+        logement = serializer.save(
             proprietaire=self.request.user
         )
 
+        # Enregistrement de toutes les photos
+        for photo in photos:
+            PhotoLogement.objects.create(
+                logement=logement,
+                image=photo
+            )
 
-class LogementRetrieveUpdateDeleteView(
-    generics.RetrieveUpdateDestroyAPIView
-):
+
+
+class LogementRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
+
     serializer_class = LogementSerializer
     permission_classes = [permissions.IsAuthenticated]
-    queryset = Logement.objects.all()
 
+    parser_classes = [
+        MultiPartParser,
+        FormParser,
+        JSONParser,
+    ]
+
+    queryset = Logement.objects.all().prefetch_related('photos')
+
+    def update(self, request, *args, **kwargs):
+
+        logement = self.get_object()
+
+        if logement.proprietaire != request.user:
+            raise PermissionDenied(
+                "Vous ne pouvez modifier que vos propres logements."
+            )
+
+        # Récupérer les photos à supprimer
+        try:
+            photos_a_supprimer = json.loads(
+                request.data.get('photos_a_supprimer', '[]')
+            )
+        except (TypeError, ValueError):
+            raise ValidationError("Liste de photos à supprimer invalide.")
+
+        if not isinstance(photos_a_supprimer, list):
+            raise ValidationError("Liste de photos invalide.")
+
+        # Vérifier que les photos à supprimer appartiennent au logement
+        photos_existantes = PhotoLogement.objects.filter(
+            logement=logement
+        )
+
+        ids_existants = set(
+            photos_existantes.values_list('id', flat=True)
+        )
+
+        try:
+            ids_a_supprimer = {int(photo_id) for photo_id in photos_a_supprimer}
+        except (TypeError, ValueError):
+            raise ValidationError("Identifiant de photo invalide.")
+
+        if not ids_a_supprimer.issubset(ids_existants):
+            raise ValidationError("Une ou plusieurs photos sont invalides.")
+
+        nouvelles_photos = request.FILES.getlist('photos')
+
+        nombre_restant = (
+            photos_existantes.exclude(id__in=ids_a_supprimer).count()
+        )
+
+        if nombre_restant + len(nouvelles_photos) > 10:
+            raise ValidationError(
+                "Vous pouvez conserver ou ajouter au maximum 10 photos."
+            )
+
+        with transaction.atomic():
+
+            # Modifier les informations du logement
+            serializer = self.get_serializer(
+                logement,
+                data=request.data,
+                partial=True
+            )
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+
+            # Supprimer les anciennes photos sélectionnées
+            for photo in photos_existantes.filter(
+                id__in=ids_a_supprimer
+            ):
+                photo.image.delete(save=False)
+                photo.delete()
+
+            # Ajouter les nouvelles photos
+            for photo in nouvelles_photos:
+                PhotoLogement.objects.create(
+                    logement=logement,
+                    image=photo
+                )
+
+        return Response(
+            LogementSerializer(logement).data,
+            status=200
+        )
+
+    def destroy(self, request, *args, **kwargs):
+
+        logement = self.get_object()
+
+        if logement.proprietaire != request.user:
+            raise PermissionDenied(
+                "Vous ne pouvez supprimer que vos propres logements."
+            )
+
+        return super().destroy(request, *args, **kwargs)
+
+
+# ==========================================
+# RESERVATIONS
+# ==========================================
 
 class ReservationListCreateView(generics.ListCreateAPIView):
+
     serializer_class = ReservationSerializer
-    permission_classes = [permissions.IsAuthenticated]
+
+    permission_classes = [
+        permissions.IsAuthenticated
+    ]
 
     def get_queryset(self):
+
         user = self.request.user
 
         if user.role == 'visiteur':
@@ -69,18 +209,25 @@ class ReservationListCreateView(generics.ListCreateAPIView):
         return Reservation.objects.none()
 
     def perform_create(self, serializer):
+
         if self.request.user.role != 'visiteur':
             raise PermissionDenied(
                 "Seul un visiteur peut réserver un logement."
             )
 
-        serializer.save(visiteur=self.request.user)
+        serializer.save(
+            visiteur=self.request.user
+        )
 
 
 class ReservationDetailView(generics.RetrieveUpdateAPIView):
-    permission_classes = [permissions.IsAuthenticated]
+
+    permission_classes = [
+        permissions.IsAuthenticated
+    ]
 
     def get_queryset(self):
+
         user = self.request.user
 
         if user.role == 'visiteur':
@@ -96,6 +243,7 @@ class ReservationDetailView(generics.RetrieveUpdateAPIView):
         return Reservation.objects.none()
 
     def get_serializer_class(self):
+
         if self.request.method in ['PUT', 'PATCH']:
             return ReservationStatutSerializer
 
@@ -141,6 +289,7 @@ class ReservationDetailView(generics.RetrieveUpdateAPIView):
 
     @transaction.atomic
     def perform_update(self, serializer):
+
         reservation = serializer.instance
 
         nouveau_statut = serializer.validated_data.get(
@@ -170,47 +319,61 @@ class ReservationDetailView(generics.RetrieveUpdateAPIView):
 
         serializer.save()
 
-class FavoriListCreateView(
-    generics.ListCreateAPIView
-):
+
+# ==========================================
+# FAVORIS
+# ==========================================
+
+class FavoriListCreateView(generics.ListCreateAPIView):
 
     serializer_class = FavoriSerializer
+
     permission_classes = [
         permissions.IsAuthenticated
     ]
 
     def get_queryset(self):
+
         return Favori.objects.filter(
             visiteur=self.request.user
         )
 
-    def perform_create(
-        self,
-        serializer
-    ):
+    def perform_create(self, serializer):
+
         serializer.save(
             visiteur=self.request.user
         )
 
 
-class FavoriDeleteView(
-    generics.DestroyAPIView
-):
+class FavoriDeleteView(generics.DestroyAPIView):
 
     serializer_class = FavoriSerializer
+
     permission_classes = [
         permissions.IsAuthenticated
     ]
 
     def get_queryset(self):
+
         return Favori.objects.filter(
             visiteur=self.request.user
-        )      
+        )
+
+
+# ==========================================
+# AVIS
+# ==========================================
+
 class AvisLogementListView(generics.ListAPIView):
+
     serializer_class = AvisSerializer
-    permission_classes = [permissions.IsAuthenticated]
+
+    permission_classes = [
+        permissions.IsAuthenticated
+    ]
 
     def get_queryset(self):
+
         logement_id = self.kwargs['logement_id']
 
         return Avis.objects.filter(
@@ -222,10 +385,15 @@ class AvisLogementListView(generics.ListAPIView):
 
 
 class AvisReservationCreateView(generics.CreateAPIView):
+
     serializer_class = AvisSerializer
-    permission_classes = [permissions.IsAuthenticated]
+
+    permission_classes = [
+        permissions.IsAuthenticated
+    ]
 
     def perform_create(self, serializer):
+
         if self.request.user.role != 'visiteur':
             raise PermissionDenied(
                 "Seul un visiteur peut publier un avis."
@@ -243,4 +411,6 @@ class AvisReservationCreateView(generics.CreateAPIView):
                 "Vous avez déjà publié un avis pour cette réservation."
             )
 
-        serializer.save(reservation=reservation)
+        serializer.save(
+            reservation=reservation
+        )

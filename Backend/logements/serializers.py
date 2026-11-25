@@ -1,20 +1,46 @@
-from rest_framework import serializers
-from .models import Logement
+
 from rest_framework import serializers
 from django.utils import timezone
+
 from .models import (
     Logement,
+    PhotoLogement,
     Reservation,
     Favori,
     Avis,
 )
-from django.db import transaction
-from rest_framework.exceptions import ValidationError
+
+
+class PhotoLogementSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = PhotoLogement
+        fields = [
+            'id',
+            'image',
+            'date_creation',
+        ]
+        read_only_fields = [
+            'id',
+            'date_creation',
+        ]
+
+
 class LogementSerializer(serializers.ModelSerializer):
+
+    photos = PhotoLogementSerializer(
+        many=True,
+        read_only=True
+    )
+
     class Meta:
         model = Logement
-        fields = "__all__"
-        read_only_fields = ["proprietaire", "date_creation"]
+        fields = '__all__'
+        read_only_fields = [
+            'proprietaire',
+            'date_creation',
+        ]
+
 
 class ReservationSerializer(serializers.ModelSerializer):
 
@@ -33,6 +59,21 @@ class ReservationSerializer(serializers.ModelSerializer):
         read_only=True
     )
 
+    # Photo de profil du visiteur
+    visiteur_photo = serializers.SerializerMethodField()
+
+    def get_visiteur_photo(self, obj):
+        if obj.visiteur and obj.visiteur.profile_photo:
+            request = self.context.get('request')
+            photo_url = obj.visiteur.profile_photo.url
+
+            if request:
+                return request.build_absolute_uri(photo_url)
+
+            return photo_url
+
+        return None
+
     logement_titre = serializers.CharField(
         source='logement.titre',
         read_only=True
@@ -48,6 +89,7 @@ class ReservationSerializer(serializers.ModelSerializer):
             'visiteur_username',
             'visiteur_email',
             'visiteur_phone',
+            'visiteur_photo',
             'date_arrivee',
             'date_depart',
             'nombre_personnes',
@@ -105,6 +147,7 @@ class ReservationSerializer(serializers.ModelSerializer):
 
         return attrs
 
+
 class ReservationStatutSerializer(serializers.ModelSerializer):
 
     class Meta:
@@ -112,13 +155,15 @@ class ReservationStatutSerializer(serializers.ModelSerializer):
         fields = ['statut']
 
     def validate_statut(self, value):
-        if value not in ['acceptee', 'refusee','annulee']:
+
+        if value not in ['acceptee', 'refusee', 'annulee']:
             raise serializers.ValidationError(
                 "Statut non autorisé."
             )
 
         return value
-    
+
+
 class FavoriSerializer(serializers.ModelSerializer):
 
     logement_titre = serializers.CharField(
@@ -132,7 +177,7 @@ class FavoriSerializer(serializers.ModelSerializer):
             'id',
             'logement',
             'logement_titre',
-            'date_creation'
+            'date_creation',
         ]
 
 
@@ -150,6 +195,7 @@ class AvisSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Avis
+
         fields = [
             'id',
             'reservation',
@@ -169,8 +215,10 @@ class AvisSerializer(serializers.ModelSerializer):
         ]
 
     def validate_note(self, value):
+
         if value < 1 or value > 5:
             raise serializers.ValidationError(
                 "La note doit être comprise entre 1 et 5."
             )
+
         return value

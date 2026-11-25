@@ -1,6 +1,6 @@
+
 from django.db import models
 from django.conf import settings
-
 
 
 class Logement(models.Model):
@@ -30,6 +30,7 @@ class Logement(models.Model):
     description = models.TextField()
     adresse = models.CharField(max_length=255)
     prix = models.DecimalField(max_digits=10, decimal_places=2)
+
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
 
@@ -71,14 +72,33 @@ class Logement(models.Model):
     def __str__(self):
         return self.titre
 
-    
+
+# PHOTOS DU LOGEMENT
+class PhotoLogement(models.Model):
+
+    logement = models.ForeignKey(
+        Logement,
+        on_delete=models.CASCADE,
+        related_name='photos'
+    )
+
+    image = models.ImageField(
+        upload_to='logements/'
+    )
+
+    date_creation = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Photo de {self.logement.titre}"
+
+
 class Reservation(models.Model):
 
     STATUT_CHOICES = [
         ('en_attente', 'En attente'),
         ('acceptee', 'Acceptée'),
         ('refusee', 'Refusée'),
-        ('annulee','Annulée')
+        ('annulee', 'Annulée'),
     ]
 
     logement = models.ForeignKey(
@@ -111,6 +131,8 @@ class Reservation(models.Model):
 
     def __str__(self):
         return f"Réservation {self.id} - {self.logement.titre}"
+
+
 class Favori(models.Model):
 
     visiteur = models.ForeignKey(
@@ -125,9 +147,7 @@ class Favori(models.Model):
         related_name='favoris'
     )
 
-    date_creation = models.DateTimeField(
-        auto_now_add=True
-    )
+    date_creation = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         unique_together = (
@@ -137,7 +157,8 @@ class Favori(models.Model):
 
     def __str__(self):
         return f"{self.visiteur} - {self.logement}"
-    
+
+
 class Avis(models.Model):
 
     NOTE_CHOICES = [
@@ -158,13 +179,9 @@ class Avis(models.Model):
         choices=NOTE_CHOICES
     )
 
-    commentaire = models.TextField(
-        blank=True
-    )
+    commentaire = models.TextField(blank=True)
 
-    date_creation = models.DateTimeField(
-        auto_now_add=True
-    )
+    date_creation = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"Avis {self.note}/5 - {self.reservation.logement.titre}"
