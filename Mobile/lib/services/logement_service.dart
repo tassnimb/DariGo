@@ -2,7 +2,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
-import 'package:http/browser_client.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -83,7 +83,7 @@ class LogementService {
     int sallesBain = 1,
     List<XFile> photos = const [],
   }) async {
-    final client = BrowserClient();
+    final client = http.Client();
 
     try {
       if (photos.length > 10) {
@@ -165,7 +165,7 @@ class LogementService {
     List<XFile> nouvellesPhotos = const [],
     List<int> photosASupprimer = const [],
   }) async {
-    final client = BrowserClient();
+    final client = http.Client();
 
     try {
       if (nouvellesPhotos.length > 10) {
