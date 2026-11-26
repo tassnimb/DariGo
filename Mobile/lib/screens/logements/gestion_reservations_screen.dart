@@ -3,6 +3,106 @@ import 'package:flutter/material.dart';
 import '../../services/reservation_service.dart';
 import '../../widgets/custom_popup.dart';
 
+Future<bool> afficherPopupDeconnexion(BuildContext context) async {
+  const Color fondPopup = Color(0xFFFAF8F3);
+  const Color bordureSable = Color(0xFFEAE3D5);
+  const Color vertSapin = Color(0xFF1F3D2B);
+  const Color brunTerre = Color(0xFF6F5E4E);
+  const Color textePrincipal = Color(0xFF1D2B22);
+
+  final resultat = await showDialog<bool>(
+    context: context,
+    barrierDismissible: true,
+    builder: (dialogContext) {
+      return Dialog(
+        backgroundColor: fondPopup,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: const BorderSide(color: bordureSable, width: 1.2),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 26,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Déconnexion',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: textePrincipal,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Voulez-vous vraiment vous déconnecter ?',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 15,
+                  color: brunTerre,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(false),
+                    style: TextButton.styleFrom(
+                      foregroundColor: brunTerre,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                    ),
+                    child: const Text(
+                      'Annuler',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: vertSapin,
+                      foregroundColor: fondPopup,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                    child: const Text(
+                      'Déconnexion',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+
+  return resultat ?? false;
+}
+
 class GestionReservationsScreen extends StatefulWidget {
   const GestionReservationsScreen({super.key});
 
@@ -31,7 +131,7 @@ class _GestionReservationsScreenState
   // ===========================================================================
   // ÉTAT
   // ===========================================================================
-  List<Map<String, dynamic>> reservations = [];
+  List reservations = [];
   bool _chargement = true;
   String? _erreur;
 

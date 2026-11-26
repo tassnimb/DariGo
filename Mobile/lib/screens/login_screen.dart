@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -28,6 +27,93 @@ class _LoginScreenState extends State<LoginScreen> {
   static const Color warmBrown = Color(0xFF8B6B4A);
   static const Color offWhite = Color(0xFFF7F3EE);
   static const Color softCream = Color(0xFFEFE7DC);
+
+  Future<void> _showDarkGreenSuccessPopup({
+    required String title,
+    required String message,
+  }) async {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: offWhite,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: 28,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: darkGreen,
+                      width: 2.5,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.check_rounded,
+                    color: darkGreen,
+                    size: 38,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: darkGreen,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 14.5,
+                    color: warmBrown,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 22),
+                SizedBox(
+                  width: 110,
+                  height: 42,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: darkGreen,
+                      foregroundColor: offWhite,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Text(
+                      'OK',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   Future<void> login() async {
     if (usernameController.text.trim().isEmpty ||
@@ -105,11 +191,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
 
       if (role == 'proprietaire' || role == 'visiteur') {
-        await CustomPopup.showSuccessPopup(
-          context: context,
-          title: 'Connexion réussie',
-          message: 'Bienvenue sur DariGo !',
-        );
+
 
         if (!mounted) return;
 
@@ -157,7 +239,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return InputDecoration(
       hintText: hint,
       hintStyle: TextStyle(
-        color: warmBrown.withOpacity(0.8),
+        color: warmBrown.withValues(alpha: 0.8),
         fontSize: 15,
       ),
       prefixIcon: Icon(
@@ -250,7 +332,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: warmBrown.withOpacity(0.08),
+                          color: warmBrown.withValues(alpha: 0.08),
                           blurRadius: 12,
                           offset: const Offset(0, 4),
                         ),
@@ -274,7 +356,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: warmBrown.withOpacity(0.08),
+                          color: warmBrown.withValues(alpha: 0.08),
                           blurRadius: 12,
                           offset: const Offset(0, 4),
                         ),
@@ -303,7 +385,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         backgroundColor: darkGreen,
                         foregroundColor: offWhite,
                         elevation: 6,
-                        shadowColor: darkGreen.withOpacity(0.35),
+                        shadowColor: darkGreen.withValues(alpha: 0.35),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(26),
                         ),

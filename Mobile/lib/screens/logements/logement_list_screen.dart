@@ -190,51 +190,60 @@ class _LogementListScreenState extends State<LogementListScreen> {
   // ===========================================================================
   // ACTIONS MÉTIER
   // ===========================================================================
-  Future<void> _toggleFavori(int logementId) async {
-    if (_favorisEnCours.contains(logementId)) return;
+ Future<void> _toggleFavori(int logementId) async {
+  if (_favorisEnCours.contains(logementId)) return;
 
-    setState(() => _favorisEnCours.add(logementId));
+  setState(() {
+    _favorisEnCours.add(logementId);
+  });
 
-    try {
-      if (_favoris.containsKey(logementId)) {
-        final favoriId = _favoris[logementId]!;
-        final succes = await FavoriService.deleteFavori(favoriId);
+  try {
+    if (_favoris.containsKey(logementId)) {
+      // Retirer des favoris
+      final favoriId = _favoris[logementId]!;
+      final succes = await FavoriService.deleteFavori(favoriId);
 
-        if (succes) {
-          if (!mounted) return;
-          setState(() => _favoris.remove(logementId));
-          await CustomPopup.showSuccessPopup(
-            context: context,
-            title: 'Favoris',
-            message: 'Logement retiré des favoris.',
-          );
-        }
-      } else {
-        final succes = await FavoriService.addFavori(logementId);
-
-        if (succes) {
-          await _chargerFavoris();
-          if (!mounted) return;
-          await CustomPopup.showSuccessPopup(
-            context: context,
-            title: 'Favoris',
-            message: 'Logement ajouté aux favoris avec succès !',
-          );
-        }
+      if (!succes) {
+        throw Exception('Échec de la suppression du favori.');
       }
-    } catch (e) {
+
       if (!mounted) return;
-      await CustomPopup.showErrorPopup(
-        context: context,
-        title: 'Erreur',
-        message: 'Erreur lors de la modification du favori.',
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _favorisEnCours.remove(logementId));
+
+      setState(() {
+        _favoris.remove(logementId);
+      });
+    } else {
+      // Ajouter aux favoris
+      final succes = await FavoriService.addFavori(logementId);
+
+      if (!succes) {
+        throw Exception('Échec de l’ajout du favori.');
       }
+
+      if (!mounted) return;
+
+      // Recharger les favoris pour récupérer l'identifiant créé
+      await _chargerFavoris();
+    }
+  } catch (e, stackTrace) {
+    debugPrint('ERREUR FAVORI : $e');
+    debugPrint('STACK TRACE : $stackTrace');
+
+    if (!mounted) return;
+
+    await CustomPopup.showErrorPopup(
+      context: context,
+      title: 'Erreur',
+      message: 'Impossible de modifier ce favori. Vérifie ta connexion.',
+    );
+  } finally {
+    if (mounted) {
+      setState(() {
+        _favorisEnCours.remove(logementId);
+      });
     }
   }
+}
 
   Future<void> _ouvrirConversations() async {
     await Navigator.push(
@@ -287,16 +296,7 @@ class _LogementListScreenState extends State<LogementListScreen> {
       ),
     );
 
-    if (!mounted) return;
 
-    if (result == true) {
-      _rechargerLogements();
-      await CustomPopup.showSuccessPopup(
-        context: context,
-        title: 'Logement ajouté',
-        message: 'Votre logement a été ajouté avec succès !',
-      );
-    }
   }
 
   List<Logement> _filtrerLogements(
@@ -338,6 +338,7 @@ class _LogementListScreenState extends State<LogementListScreen> {
       message: 'Voulez-vous vraiment vous déconnecter ?',
       confirmText: 'Déconnexion',
       cancelText: 'Annuler',
+
     );
 
     if (!confirmer || !mounted) return;

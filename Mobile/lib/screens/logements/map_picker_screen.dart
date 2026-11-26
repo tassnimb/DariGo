@@ -1,4 +1,3 @@
-
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -44,7 +43,12 @@ class MapPickerScreen extends StatefulWidget {
 }
 
 class _MapPickerScreenState extends State<MapPickerScreen> {
-  static const Color violet = Color(0xFF6C4AB6);
+  // Palette DariGo
+  static const Color vertForet = Color(0xFF1E3A2F);
+  static const Color sableClair = Color(0xFFE7DFD3);
+  static const Color fondCreme = Color(0xFFF5F1EB);
+  static const Color carteIvoire = Color(0xFFFAF7F2);
+  static const Color brunTerre = Color(0xFF4A3B32);
 
   final MapController mapController = MapController();
   final GlobalKey mapKey = GlobalKey();
@@ -102,7 +106,11 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
+        SnackBar(
+          content: Text(e.toString()),
+          backgroundColor: vertForet,
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     }
   }
@@ -174,7 +182,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
         );
       }
 
-      final Map<String, dynamic> address =
+      final address =
           Map<String, dynamic>.from(data['address']);
 
       String getAddressComponent(List<String> keys) {
@@ -233,7 +241,8 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Erreur : $e'),
-          backgroundColor: Colors.red,
+          backgroundColor: brunTerre,
+          behavior: SnackBarBehavior.floating,
         ),
       );
     } finally {
@@ -258,22 +267,23 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: fondCreme,
       appBar: AppBar(
         title: const Text(
           'Choisir une localisation',
           style: TextStyle(
             fontWeight: FontWeight.bold,
+            color: vertForet,
           ),
         ),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
+        backgroundColor: fondCreme,
+        foregroundColor: vertForet,
         elevation: 0,
+        centerTitle: true,
       ),
-
       body: Stack(
         children: [
           // CARTE OPENSTREETMAP
-
           FlutterMap(
             key: mapKey,
             mapController: mapController,
@@ -292,7 +302,6 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                     'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.example.darigo',
               ),
-
               MarkerLayer(
                 markers: [
                   Marker(
@@ -303,14 +312,13 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                       onPanUpdate: deplacerMarqueur,
                       child: const Icon(
                         Icons.location_pin,
-                        color: violet,
+                        color: vertForet,
                         size: 55,
                       ),
                     ),
                   ),
                 ],
               ),
-
               RichAttributionWidget(
                 attributions: [
                   TextSourceAttribution(
@@ -323,27 +331,38 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
           ),
 
           // MESSAGE EN HAUT
-
           Positioned(
             top: 15,
             left: 15,
             right: 15,
             child: Card(
-              elevation: 4,
-              child: Padding(
-                padding: const EdgeInsets.all(14),
+              color: carteIvoire,
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+                side: const BorderSide(
+                  color: sableClair,
+                  width: 1.2,
+                ),
+              ),
+              child: const Padding(
+                padding: EdgeInsets.all(14),
                 child: Row(
-                  children: const [
+                  children: [
                     Icon(
                       Icons.location_on,
-                      color: violet,
+                      color: vertForet,
                     ),
                     SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         'Cliquez sur la carte ou déplacez '
                         'le marqueur pour choisir votre emplacement.',
-                        style: TextStyle(fontSize: 13),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: brunTerre,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                   ],
@@ -353,26 +372,32 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
           ),
 
           // BOUTON POSITION ACTUELLE
-
           Positioned(
             right: 16,
             bottom: 115,
             child: FloatingActionButton(
-              backgroundColor: Colors.white,
-              foregroundColor: violet,
+              backgroundColor: carteIvoire,
+              foregroundColor: vertForet,
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: const BorderSide(
+                  color: sableClair,
+                  width: 1.2,
+                ),
+              ),
               onPressed: obtenirPositionActuelle,
               child: const Icon(Icons.my_location),
             ),
           ),
 
           // BOUTON CONFIRMER
-
           Positioned(
             left: 20,
             right: 20,
             bottom: 20,
             child: SizedBox(
-              height: 52,
+              height: 54,
               child: ElevatedButton.icon(
                 onPressed: chargement
                     ? null
@@ -382,7 +407,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(
-                          color: Colors.white,
+                          color: carteIvoire,
                           strokeWidth: 2,
                         ),
                       )
@@ -391,12 +416,19 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                   chargement
                       ? 'Récupération de l’adresse...'
                       : 'Confirmer cette localisation',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                  ),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: violet,
-                  foregroundColor: Colors.white,
+                  backgroundColor: vertForet,
+                  foregroundColor: carteIvoire,
+                  disabledBackgroundColor: sableClair,
+                  disabledForegroundColor: brunTerre,
+                  elevation: 2,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(13),
+                    borderRadius: BorderRadius.circular(28),
                   ),
                 ),
               ),

@@ -1,11 +1,9 @@
-
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../services/logement_service.dart';
-import '../../widgets/custom_popup.dart';
 import 'map_picker_screen.dart';
 
 class AjouterLogementScreen extends StatefulWidget {
@@ -20,8 +18,13 @@ class _AjouterLogementScreenState
     extends State<AjouterLogementScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  final Color violet = const Color(0xFF6C4AB6);
-  final Color violetClair = const Color(0xFFF3EEFC);
+  // Palette DariGo
+  final Color vertForet = const Color(0xFF1E3A2F);
+  final Color vertSauge = const Color(0xFF3E6150);
+  final Color sableClair = const Color(0xFFE7DFD3);
+  final Color fondCreme = const Color(0xFFF5F1EB);
+  final Color carteIvoire = const Color(0xFFFAF7F2);
+  final Color brunTerre = const Color(0xFF4A3B32);
 
   // Contrôleurs
   final titreController = TextEditingController();
@@ -49,30 +52,21 @@ class _AjouterLogementScreenState
 
   // Photos
   final ImagePicker imagePicker = ImagePicker();
-  List<XFile> photos = [];
+  List photos = [];
   static const int maxPhotos = 10;
 
   // Étapes
   int currentStep = 0;
   bool isLoading = false;
 
-  // IMPORTANT :
-  // Les valeurs "value" doivent correspondre exactement
-  // aux valeurs déclarées dans les choices de models.py.
-  //
-  // Si Django n'accepte pas "appartement", "maison" ou "villa",
-  // remplace ces valeurs par les clés exactes de ton modèle.
-  final List<Map<String, String>> typesLogement = [
+  final typesLogement = [
     {'value': 'appartement', 'label': 'Appartement'},
     {'value': 'maison', 'label': 'Maison'},
     {'value': 'villa', 'label': 'Villa'},
     {'value': 'studio', 'label': 'Studio'},
-    
   ];
 
-  // Ces valeurs correspondent aux choices Django
-  // montrés précédemment.
-  final List<Map<String, String>> typesHebergement = [
+  final typesHebergement = [
     {'value': 'entier', 'label': 'Logement entier'},
     {'value': 'privee', 'label': 'Chambre privée'},
     {'value': 'partagee', 'label': 'Chambre partagée'},
@@ -89,6 +83,102 @@ class _AjouterLogementScreenState
     paysController.dispose();
     codePostalController.dispose();
     super.dispose();
+  }
+
+  // ============================
+  // POPUP STYLE DARIGO
+  // ============================
+
+  Future<void> _afficherPopupDariGo({
+    required String title,
+    required String message,
+    required IconData icon,
+    required Color accentColor,
+    String boutonTexte = 'OK',
+  }) async {
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: carteIvoire,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+            side: BorderSide(color: sableClair, width: 1.2),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: 28,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: accentColor.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: accentColor,
+                      width: 2,
+                    ),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: accentColor,
+                    size: 34,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: vertForet,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14.5,
+                    color: brunTerre,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 22),
+                SizedBox(
+                  width: 130,
+                  height: 44,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: accentColor,
+                      foregroundColor: carteIvoire,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                    child: Text(
+                      boutonTexte,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   // ============================
@@ -136,7 +226,7 @@ class _AjouterLogementScreenState
   // ============================
 
   Future<void> choisirLocalisation() async {
-    final resultat = await Navigator.push<PickedLocation>(
+    final resultat = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => const MapPickerScreen(),
@@ -201,11 +291,13 @@ class _AjouterLogementScreenState
 
     if (currentStep == 5) {
       if (!_formKey.currentState!.validate()) {
-        await CustomPopup.showWarningPopup(
-          context: context,
+        await _afficherPopupDariGo(
           title: 'Formulaire incomplet',
           message:
               'Veuillez corriger les champs indiqués avant de publier.',
+          icon: Icons.warning_amber_rounded,
+          accentColor: brunTerre,
+          boutonTexte: 'Compris',
         );
         return;
       }
@@ -229,7 +321,11 @@ class _AjouterLogementScreenState
 
   void afficherMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
+      SnackBar(
+        content: Text(message),
+        backgroundColor: vertForet,
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 
@@ -265,26 +361,28 @@ class _AjouterLogementScreenState
         sallesBain: sallesBain,
         latitude: latitude!,
         longitude: longitude!,
-        photos: photos,
+        photos: List.castFrom(photos),
       );
 
       if (!mounted) return;
 
       if (success) {
-        await CustomPopup.showSuccessPopup(
-          context: context,
+        await _afficherPopupDariGo(
           title: 'Logement ajouté !',
           message: 'Votre logement a été publié avec succès.',
+          icon: Icons.check_rounded,
+          accentColor: vertForet,
         );
 
         if (!mounted) return;
         Navigator.pop(context, true);
       } else {
-        await CustomPopup.showErrorPopup(
-          context: context,
+        await _afficherPopupDariGo(
           title: 'Échec de publication',
           message:
               'Impossible d’ajouter le logement. Veuillez réessayer.',
+          icon: Icons.error_outline_rounded,
+          accentColor: brunTerre,
         );
       }
     } catch (e) {
@@ -292,11 +390,12 @@ class _AjouterLogementScreenState
 
       debugPrint('Erreur ajout logement : $e');
 
-      await CustomPopup.showErrorPopup(
-        context: context,
+      await _afficherPopupDariGo(
         title: 'Erreur inattendue',
         message:
             'Une erreur est survenue lors de l’ajout du logement.',
+        icon: Icons.error_outline_rounded,
+        accentColor: brunTerre,
       );
     } finally {
       if (mounted) {
@@ -323,24 +422,28 @@ class _AjouterLogementScreenState
       maxLines: maxLines,
       keyboardType: keyboardType,
       validator: validator,
+      style: TextStyle(
+        color: vertForet,
+        fontWeight: FontWeight.w500,
+      ),
       decoration: InputDecoration(
         labelText: label,
+        labelStyle: TextStyle(color: brunTerre),
         filled: true,
-        fillColor: Colors.white,
+        fillColor: carteIvoire,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: sableClair),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(
-            color: Colors.grey.shade300,
-          ),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: sableClair),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(
-            color: violet,
-            width: 2,
+            color: vertForet,
+            width: 1.8,
           ),
         ),
       ),
@@ -353,7 +456,7 @@ class _AjouterLogementScreenState
 
   Widget construireCartesSelection({
     required String titre,
-    required List<Map<String, String>> choix,
+    required List choix,
     required String? valeurSelectionnee,
     required ValueChanged<String> onSelection,
     required IconData icone,
@@ -363,9 +466,10 @@ class _AjouterLogementScreenState
       children: [
         Text(
           titre,
-          style: const TextStyle(
-            fontSize: 20,
+          style: TextStyle(
+            fontSize: 21,
             fontWeight: FontWeight.bold,
+            color: vertForet,
           ),
         ),
         const SizedBox(height: 20),
@@ -384,28 +488,45 @@ class _AjouterLogementScreenState
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: selected ? violetClair : Colors.white,
-                borderRadius: BorderRadius.circular(14),
+                color: selected ? vertForet : carteIvoire,
+                borderRadius: BorderRadius.circular(18),
                 border: Border.all(
-                  color: selected ? violet : Colors.grey.shade300,
-                  width: selected ? 2 : 1,
+                  color: selected ? vertForet : sableClair,
+                  width: selected ? 1.8 : 1.2,
                 ),
               ),
               child: Row(
                 children: [
-                  Icon(icone, color: violet, size: 28),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? Colors.white.withValues(alpha: 0.14)
+                          : sableClair.withValues(alpha: 0.65),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      icone,
+                      color: selected ? carteIvoire : vertForet,
+                      size: 24,
+                    ),
+                  ),
                   const SizedBox(width: 15),
                   Expanded(
                     child: Text(
                       label,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
+                        color: selected ? carteIvoire : vertForet,
                       ),
                     ),
                   ),
                   if (selected)
-                    Icon(Icons.check_circle, color: violet),
+                    Icon(
+                      Icons.check_circle,
+                      color: carteIvoire,
+                    ),
                 ],
               ),
             ),
@@ -459,15 +580,15 @@ class _AjouterLogementScreenState
     required VoidCallback augmenter,
   }) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 18),
+      margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.symmetric(
-        vertical: 12,
-        horizontal: 15,
+        vertical: 14,
+        horizontal: 16,
       ),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
+        color: carteIvoire,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: sableClair, width: 1.2),
       ),
       child: Row(
         children: [
@@ -477,15 +598,17 @@ class _AjouterLogementScreenState
               children: [
                 Text(
                   titre,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
+                    color: vertForet,
                   ),
                 ),
+                const SizedBox(height: 2),
                 Text(
                   description,
                   style: TextStyle(
-                    color: Colors.grey.shade600,
+                    color: brunTerre,
                     fontSize: 12,
                   ),
                 ),
@@ -495,19 +618,24 @@ class _AjouterLogementScreenState
           IconButton(
             onPressed: diminuer,
             icon: const Icon(Icons.remove_circle_outline),
-            color: violet,
+            color: vertForet,
           ),
-          Text(
-            '$valeur',
-            style: const TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.bold,
+          SizedBox(
+            width: 28,
+            child: Text(
+              '$valeur',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+                color: vertForet,
+              ),
             ),
           ),
           IconButton(
             onPressed: augmenter,
             icon: const Icon(Icons.add_circle_outline),
-            color: violet,
+            color: vertForet,
           ),
         ],
       ),
@@ -522,11 +650,12 @@ class _AjouterLogementScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Décrivez la capacité de votre logement',
           style: TextStyle(
-            fontSize: 20,
+            fontSize: 21,
             fontWeight: FontWeight.bold,
+            color: vertForet,
           ),
         ),
         const SizedBox(height: 20),
@@ -594,49 +723,75 @@ class _AjouterLogementScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Où se trouve votre logement ?',
           style: TextStyle(
-            fontSize: 20,
+            fontSize: 21,
             fontWeight: FontWeight.bold,
+            color: vertForet,
           ),
         ),
-        const SizedBox(height: 10),
-        const Text('Choisissez son emplacement sur la carte.'),
+        const SizedBox(height: 8),
+        Text(
+          'Choisissez son emplacement sur la carte.',
+          style: TextStyle(color: brunTerre),
+        ),
         const SizedBox(height: 20),
         Container(
-          padding: const EdgeInsets.all(18),
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: violetClair,
-            borderRadius: BorderRadius.circular(14),
+            color: carteIvoire,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: sableClair, width: 1.2),
           ),
           child: Column(
             children: [
-              Icon(Icons.location_on, size: 45, color: violet),
-              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: sableClair.withValues(alpha: 0.7),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.location_on,
+                  size: 36,
+                  color: vertForet,
+                ),
+              ),
+              const SizedBox(height: 12),
               Text(
                 latitude == null
                     ? 'Aucune localisation sélectionnée'
                     : 'Localisation sélectionnée',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: vertForet,
+                ),
               ),
               if (latitude != null) ...[
                 const SizedBox(height: 8),
                 Text(
                   'Latitude : $latitude\nLongitude : $longitude',
                   textAlign: TextAlign.center,
+                  style: TextStyle(color: brunTerre),
                 ),
               ],
-              const SizedBox(height: 15),
+              const SizedBox(height: 16),
               ElevatedButton.icon(
                 onPressed: choisirLocalisation,
                 icon: const Icon(Icons.map),
                 label: const Text('Choisir sur la carte'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: violet,
-                  foregroundColor: Colors.white,
+                  backgroundColor: vertForet,
+                  foregroundColor: carteIvoire,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(28),
+                  ),
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
+                    horizontal: 22,
                     vertical: 14,
                   ),
                 ),
@@ -681,17 +836,18 @@ class _AjouterLogementScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Ajoutez des photos de votre logement',
           style: TextStyle(
-            fontSize: 20,
+            fontSize: 21,
             fontWeight: FontWeight.bold,
+            color: vertForet,
           ),
         ),
         const SizedBox(height: 8),
         Text(
           'Ajoutez jusqu’à 10 photos.',
-          style: TextStyle(color: Colors.grey.shade600),
+          style: TextStyle(color: brunTerre),
         ),
         const SizedBox(height: 20),
         ElevatedButton.icon(
@@ -703,13 +859,35 @@ class _AjouterLogementScreenState
             'Ajouter des photos (${photos.length}/$maxPhotos)',
           ),
           style: ElevatedButton.styleFrom(
-            backgroundColor: violet,
-            foregroundColor: Colors.white,
+            backgroundColor: vertForet,
+            foregroundColor: carteIvoire,
+            disabledBackgroundColor: sableClair,
+            disabledForegroundColor: brunTerre,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(28),
+            ),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 20,
+              vertical: 14,
+            ),
           ),
         ),
         const SizedBox(height: 20),
         if (photos.isEmpty)
-          const Text('Aucune photo ajoutée.')
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: carteIvoire,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: sableClair),
+            ),
+            child: Text(
+              'Aucune photo ajoutée.',
+              style: TextStyle(color: brunTerre),
+            ),
+          )
         else
           GridView.builder(
             shrinkWrap: true,
@@ -727,18 +905,20 @@ class _AjouterLogementScreenState
               return Stack(
                 children: [
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: FutureBuilder<Uint8List>(
+                    borderRadius: BorderRadius.circular(16),
+                    child: FutureBuilder(
                       future: photo.readAsBytes(),
                       builder: (context, snapshot) {
                         if (!snapshot.hasData) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
+                          return Center(
+                            child: CircularProgressIndicator(
+                              color: vertForet,
+                            ),
                           );
                         }
 
                         return Image.memory(
-                          snapshot.data!,
+                          snapshot.data! as Uint8List,
                           width: double.infinity,
                           height: double.infinity,
                           fit: BoxFit.cover,
@@ -748,38 +928,42 @@ class _AjouterLogementScreenState
                   ),
                   if (index == 0)
                     Positioned(
-                      left: 5,
-                      top: 5,
+                      left: 8,
+                      top: 8,
                       child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: violet,
-                          borderRadius: BorderRadius.circular(8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 5,
                         ),
-                        child: const Text(
+                        decoration: BoxDecoration(
+                          color: vertForet,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
                           'Principale',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: carteIvoire,
                             fontSize: 11,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
                     ),
                   Positioned(
-                    right: 5,
-                    top: 5,
+                    right: 8,
+                    top: 8,
                     child: GestureDetector(
                       onTap: () => supprimerPhoto(index),
                       child: Container(
                         padding: const EdgeInsets.all(6),
-                        decoration: const BoxDecoration(
-                          color: Colors.red,
+                        decoration: BoxDecoration(
+                          color: brunTerre,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.close,
-                          color: Colors.white,
-                          size: 18,
+                          color: carteIvoire,
+                          size: 16,
                         ),
                       ),
                     ),
@@ -800,11 +984,12 @@ class _AjouterLogementScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Présentez votre logement',
           style: TextStyle(
-            fontSize: 20,
+            fontSize: 21,
             fontWeight: FontWeight.bold,
+            color: vertForet,
           ),
         ),
         const SizedBox(height: 20),
@@ -888,14 +1073,17 @@ class _AjouterLogementScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFAF9FC),
+      backgroundColor: fondCreme,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Ajouter un logement',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: vertForet,
+          ),
         ),
-        backgroundColor: Colors.white,
-        foregroundColor: violet,
+        backgroundColor: fondCreme,
+        foregroundColor: vertForet,
         elevation: 0,
         centerTitle: true,
       ),
@@ -903,14 +1091,14 @@ class _AjouterLogementScreenState
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'Étape ${currentStep + 1} sur 6',
                     style: TextStyle(
-                      color: violet,
+                      color: vertSauge,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -920,17 +1108,18 @@ class _AjouterLogementScreenState
                     child: LinearProgressIndicator(
                       value: (currentStep + 1) / 6,
                       minHeight: 7,
-                      backgroundColor: violetClair,
+                      backgroundColor: sableClair,
                       valueColor:
-                          AlwaysStoppedAnimation<Color>(violet),
+                          AlwaysStoppedAnimation(vertForet),
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
                   Text(
                     nomEtape,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
+                      color: vertForet,
                     ),
                   ),
                 ],
@@ -948,14 +1137,10 @@ class _AjouterLogementScreenState
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, -3),
-                  ),
-                ],
+                color: carteIvoire,
+                border: Border(
+                  top: BorderSide(color: sableClair),
+                ),
               ),
               child: Row(
                 children: [
@@ -964,8 +1149,11 @@ class _AjouterLogementScreenState
                       child: OutlinedButton(
                         onPressed: isLoading ? null : precedent,
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: violet,
-                          side: BorderSide(color: violet),
+                          foregroundColor: vertForet,
+                          side: BorderSide(color: vertForet),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(28),
+                          ),
                           padding: const EdgeInsets.symmetric(
                             vertical: 15,
                           ),
@@ -979,25 +1167,30 @@ class _AjouterLogementScreenState
                     child: ElevatedButton(
                       onPressed: isLoading ? null : suivant,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: violet,
-                        foregroundColor: Colors.white,
+                        backgroundColor: vertForet,
+                        foregroundColor: carteIvoire,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(28),
+                        ),
                         padding: const EdgeInsets.symmetric(
                           vertical: 15,
                         ),
                       ),
                       child: isLoading
-                          ? const SizedBox(
+                          ? SizedBox(
                               width: 22,
                               height: 22,
                               child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
+                                strokeWidth: 2.2,
+                                color: carteIvoire,
                               ),
                             )
                           : Text(
-                              currentStep == 5
-                                  ? 'Publier le logement'
-                                  : 'Suivant',
+                              currentStep == 5 ? 'Publier' : 'Suivant',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                     ),
                   ),

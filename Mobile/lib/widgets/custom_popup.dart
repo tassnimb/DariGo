@@ -6,12 +6,13 @@ class CustomPopup {
     required BuildContext context,
     required String title,
     required String message,
+    Color color = const Color(0xFF1F3D2B),
   }) {
     return _showPopup(
       context: context,
       title: title,
       message: message,
-      color: Colors.green,
+      color: color,
       icon: Icons.check_circle_outline,
       buttonText: 'OK',
     );
@@ -111,38 +112,76 @@ class CustomPopup {
     );
   }
 
-  static Future<bool> showConfirmPopup({
-    required BuildContext context,
-    required String title,
-    required String message,
-    String confirmText = 'Oui',
-    String cancelText = 'Non',
-  }) async {
-    final result = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: Text(title, textAlign: TextAlign.center),
-          content: Text(message, textAlign: TextAlign.center),
-          actionsAlignment: MainAxisAlignment.spaceEvenly,
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: Text(cancelText),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text(confirmText),
-            ),
-          ],
-        );
-      },
-    );
+ static Future<bool> showConfirmPopup({
+  required BuildContext context,
+  required String title,
+  required String message,
+  String confirmText = 'Oui',
+  String cancelText = 'Non',
+}) async {
+  const Color vertForet = Color(0xFF1F3D2B);
 
-    return result ?? false;
-  }
+  final result = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (dialogContext) {
+      return AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(
+            color: vertForet,
+            width: 1.5,
+          ),
+        ),
+        title: Text(
+          title,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: vertForet,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Text(
+          message,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Colors.black87,
+            fontSize: 15,
+          ),
+        ),
+        actionsAlignment: MainAxisAlignment.spaceEvenly,
+        actions: [
+          TextButton(
+            style: TextButton.styleFrom(
+              foregroundColor: vertForet,
+            ),
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(false),
+            child: Text(cancelText),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: vertForet,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 25,
+                vertical: 12,
+              ),
+            ),
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(true),
+            child: Text(confirmText),
+          ),
+        ],
+      );
+    },
+  );
+
+  return result ?? false;
+}
 }

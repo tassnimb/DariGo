@@ -161,6 +161,7 @@ class _LogementDetailScreenState extends State<LogementDetailScreen> {
           context: context,
           title: 'Logement supprimé',
           message: 'Votre logement a été supprimé avec succès.',
+
         );
         if (!mounted) return;
         Navigator.pop(context, true);

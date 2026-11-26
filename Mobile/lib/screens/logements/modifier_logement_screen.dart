@@ -28,7 +28,7 @@ class _ModifierLogementScreenState
   static const Color _fondCreme = Color(0xFFF5F2EB);
   static const Color _surfaceClaire = Color(0xFFFAF8F3);
   static const Color _sableClair = Color(0xFFEAE3D5);
-  static const Color _vertSapin = Color(0xFF1F3D2B);
+  static const Color _vertForet = Color(0xFF1F3D2B);
   static const Color _vertSauge = Color(0xFF6E8F79);
   static const Color _brunTerre = Color(0xFF6F5E4E);
   static const Color _textePrincipal = Color(0xFF1D2B22);
@@ -181,7 +181,7 @@ class _ModifierLogementScreenState
       if (!mounted) return;
 
       if (success) {
-        await CustomPopup.showSuccessPopup(
+        await CustomPopup.showConfirmPopup(
           context: context,
           title: 'Modification réussie',
           message: 'Votre logement a été modifié avec succès !',
@@ -220,10 +220,10 @@ class _ModifierLogementScreenState
       labelText: label,
       labelStyle: const TextStyle(color: _texteSecondaire),
       floatingLabelStyle: const TextStyle(
-        color: _vertSapin,
+        color: _vertForet,
         fontWeight: FontWeight.w600,
       ),
-      prefixIcon: Icon(icon, color: _vertSapin),
+      prefixIcon: Icon(icon, color: _vertForet),
       filled: true,
       fillColor: _surfaceClaire,
       contentPadding: const EdgeInsets.symmetric(
@@ -236,7 +236,7 @@ class _ModifierLogementScreenState
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: _vertSapin, width: 1.5),
+        borderSide: const BorderSide(color: _vertForet, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
@@ -342,7 +342,7 @@ class _ModifierLogementScreenState
                       color: _sableClair,
                       child: Center(
                         child: CircularProgressIndicator(
-                          color: _vertSapin,
+                          color: _vertForet,
                           strokeWidth: 2,
                         ),
                       ),
@@ -418,7 +418,7 @@ class _ModifierLogementScreenState
               child: Text(
                 '$_nombrePhotos / $_maxPhotos',
                 style: const TextStyle(
-                  color: _vertSapin,
+                  color: _vertForet,
                   fontWeight: FontWeight.w700,
                   fontSize: 13,
                 ),
@@ -488,7 +488,7 @@ class _ModifierLogementScreenState
                     height: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: _vertSapin,
+                      color: _vertForet,
                     ),
                   )
                 : const Icon(Icons.add_photo_alternate_outlined),
@@ -496,11 +496,11 @@ class _ModifierLogementScreenState
               _isPicking ? 'Chargement...' : 'Ajouter des photos',
             ),
             style: OutlinedButton.styleFrom(
-              foregroundColor: _vertSapin,
+              foregroundColor: _vertForet,
               backgroundColor: _surfaceClaire,
               disabledForegroundColor: _texteSecondaire,
               padding: const EdgeInsets.symmetric(vertical: 14),
-              side: const BorderSide(color: _vertSapin),
+              side: const BorderSide(color: _vertForet),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
@@ -606,7 +606,7 @@ class _ModifierLogementScreenState
                 _isLoading ? 'Enregistrement...' : 'Enregistrer',
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: _vertSapin,
+                backgroundColor: _vertForet,
                 foregroundColor: Colors.white,
                 disabledBackgroundColor: _vertSauge,
                 disabledForegroundColor: Colors.white,
@@ -636,7 +636,7 @@ class _ModifierLogementScreenState
           style: TextStyle(fontWeight: FontWeight.w700),
         ),
         backgroundColor: _fondCreme,
-        foregroundColor: _vertSapin,
+        foregroundColor: _vertForet,
         elevation: 0,
         scrolledUnderElevation: 0,
       ),
