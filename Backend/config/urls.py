@@ -18,6 +18,7 @@ urlpatterns = [
 
     path('api/', include('logements.urls')),
     path('api/messagerie/', include('messagerie.urls')),
+    path('api/chatbot/', include('chatbot.urls')),
 ]
 if settings.DEBUG:
     urlpatterns += static(
